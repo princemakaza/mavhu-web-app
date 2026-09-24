@@ -1,0 +1,68 @@
+/* Palette sampled from the Mavhu logo: deep teal-navy body, gold-to-green diamond. */
+:root {
+  color-scheme: light;
+
+  --teal-950: #061a22;
+  --teal-900: #082a3a;
+  --teal-800: #0b3447;
+  --teal-700: #0f4560;
+  --gold: #e8b923;
+  --gold-soft: #f2c94c;
+  --green: #3e8e2e;
+  --lime: #8db33a;
+  --gradient-diamond: linear-gradient(135deg, #f2c94c 0%, #8db33a 55%, #3e8e2e 100%);
+
+  --bg: #f3f6f7;
+  --surface: #ffffff;
+  --surface-2: #eaf0f2;
+  --text: #0a2733;
+  --text-muted: #56707d;
+  --border: #d5e0e5;
+  --border-strong: #b7c8cf;
+
+  --brand: var(--teal-800);
+  --brand-hover: var(--teal-700);
+  --on-brand: #ffffff;
+  --accent: var(--green);
+  --ring: rgba(232, 185, 35, 0.55);
+
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --danger-border: #fecdca;
+
+  --shadow-sm: 0 1px 2px rgba(8, 42, 58, 0.06);
+  --shadow-md: 0 10px 30px -12px rgba(8, 42, 58, 0.25);
+  --shadow-lg: 0 24px 60px -20px rgba(8, 42, 58, 0.35);
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #051821;
+  --surface: #0b2532;
+  --surface-2: #102f3f;
+  --text: #e7f0f3;
+  --text-muted: #8faab6;
+  --border: #1c3c4c;
+  --border-strong: #2a5165;
+
+  --brand: var(--gold);
+  --brand-hover: var(--gold-soft);
+  --on-brand: #041219;
+  --accent: var(--lime);
+  --ring: rgba(242, 201, 76, 0.5);
+
+  --danger: #f97066;
+  --danger-bg: #3a1512;
+  --danger-border: #6b2620;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+}

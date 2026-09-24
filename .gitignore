@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+*.log
+*.tsbuildinfo
+.idea/
+.vscode/
+
+# --- Claude Code / agent tooling ---
+.claude/
+!.claude/skills/
+!.claude/skills/**
+CLAUDE.md
+.claude.json
+.claude.local.json
+.aider*
+.cursor/
+.continue/
+
+# --- Always keep READMEs, wherever they live ---
+!**/README.md
+!**/README
+!**/readme.md
