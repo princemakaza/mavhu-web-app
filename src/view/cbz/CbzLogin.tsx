@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { cbzApiLogin } from '../../model/cbz/cbz_api';
+import { useCbzData } from '../../model/cbz/CbzDataContext';
 import { cbzSession } from '../../model/cbz/session';
-import { useCbz } from '../../model/cbz/useCbz';
 import type { CbzSession, Member } from '../../model/cbz/types';
 
 interface Props {
@@ -8,10 +9,11 @@ interface Props {
 }
 
 export function CbzLogin({ onLogin }: Props) {
-  const state = useCbz();
+  const { state } = useCbzData();
   const [email, setEmail] = useState('anesu.mutasa@cbzholdings.co.zw');
   const [password, setPassword] = useState('cbz-demo');
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [showList, setShowList] = useState(false);
 
   const membersByEntity = useMemo(() => {
@@ -24,28 +26,27 @@ export function CbzLogin({ onLogin }: Props) {
     return groups;
   }, [state.members]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const member = state.members.find((m) => m.email.toLowerCase() === email.trim().toLowerCase());
-    if (!member) {
-      setError('No account with that email. Try one of the demo accounts below.');
-      return;
+    setSubmitting(true);
+    try {
+      const { member, token: _ } = await cbzApiLogin(email.trim(), password);
+      const session: CbzSession = {
+        memberId: member.id,
+        fullName: member.fullName,
+        email: member.email,
+        entityCode: member.entityCode,
+        role: member.role,
+        loginAt: new Date().toISOString(),
+      };
+      cbzSession.save(session);
+      onLogin(session);
+    } catch {
+      setError('Invalid email or password.');
+    } finally {
+      setSubmitting(false);
     }
-    if (password.trim().length < 3) {
-      setError('Password too short.');
-      return;
-    }
-    const session: CbzSession = {
-      memberId: member.id,
-      fullName: member.fullName,
-      email: member.email,
-      entityCode: member.entityCode,
-      role: member.role,
-      loginAt: new Date().toISOString(),
-    };
-    cbzSession.save(session);
-    onLogin(session);
   }
 
   function pick(member: Member) {
@@ -85,7 +86,7 @@ export function CbzLogin({ onLogin }: Props) {
         <form className="cbz-login__form" onSubmit={submit} noValidate>
           <div className="cbz-login__form-head">
             <h2>Sign in</h2>
-            <p>Use your CBZ Holdings email. Anything &gt; 2 chars unlocks the demo password.</p>
+            <p>Use your CBZ Holdings email and password.</p>
           </div>
           <label className="cbz-field">
             <span>Work email</span>
@@ -110,8 +111,8 @@ export function CbzLogin({ onLogin }: Props) {
             />
           </label>
           {error && <p className="cbz-alert cbz-alert--danger">{error}</p>}
-          <button type="submit" className="cbz-btn cbz-btn--primary cbz-btn--block">
-            Sign in
+          <button type="submit" className="cbz-btn cbz-btn--primary cbz-btn--block" disabled={submitting}>
+            {submitting ? 'Signing in…' : 'Sign in'}
           </button>
           <button
             type="button"

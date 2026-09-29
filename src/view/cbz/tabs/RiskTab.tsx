@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
-import { cbzStore } from '../../../model/cbz/store';
 import type { CbzSession, EntityCode, RiskEntry } from '../../../model/cbz/types';
 import { Panel, RiskChip, StatCard } from '../components/primitives';
 
@@ -122,7 +122,8 @@ export function RiskTab({ scope, session }: { scope: EntityCode; session: CbzSes
   );
 }
 
-function AddRiskModal({ onClose, scope, actor }: { onClose: () => void; scope: EntityCode; actor: string }) {
+function AddRiskModal({ onClose, scope }: { onClose: () => void; scope: EntityCode; actor: string }) {
+  const { addRisk } = useCbzData();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<RiskEntry['category']>('Physical');
   const [likelihood, setLikelihood] = useState<1 | 2 | 3 | 4 | 5>(3);
@@ -131,15 +132,15 @@ function AddRiskModal({ onClose, scope, actor }: { onClose: () => void; scope: E
   const [status, setStatus] = useState<RiskEntry['status']>('Identified');
   const [error, setError] = useState<string | null>(null);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!title.trim()) {
       setError('Title is required.');
       return;
     }
-    cbzStore.addRisk(
-      {
+    try {
+      await addRisk({
         title: title.trim(),
         category,
         likelihood,
@@ -147,10 +148,11 @@ function AddRiskModal({ onClose, scope, actor }: { onClose: () => void; scope: E
         owner: owner.trim() || 'Unassigned',
         status,
         linkedEntity: scope === 'GROUP' ? 'GROUP' : scope,
-      },
-      actor,
-    );
-    onClose();
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save risk entry.');
+    }
   }
 
   return (

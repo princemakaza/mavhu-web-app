@@ -14,9 +14,9 @@ export function SnapshotTab({ scope }: { scope: EntityCode }) {
       : items.filter((x) => (x.entityCode ?? x.subsidiary) === scope);
 
   const emissions = inScope(state.emissions).filter((e) => e.status !== 'draft');
-  const scope1 = emissions.filter((e) => e.scope === 'scope1').reduce((s, r) => s + r.emissionsTco2e, 0);
-  const scope2 = emissions.filter((e) => e.scope === 'scope2').reduce((s, r) => s + r.emissionsTco2e, 0);
-  const scope3 = emissions.filter((e) => e.scope === 'scope3').reduce((s, r) => s + r.emissionsTco2e, 0);
+  const scope1 = emissions.filter((e) => e.scope === 'scope1').reduce((s, r) => s + Number(r.emissionsTco2e), 0);
+  const scope2 = emissions.filter((e) => e.scope === 'scope2').reduce((s, r) => s + Number(r.emissionsTco2e), 0);
+  const scope3 = emissions.filter((e) => e.scope === 'scope3').reduce((s, r) => s + Number(r.emissionsTco2e), 0);
   const total = scope1 + scope2 + scope3;
 
   const counterparties = scope === 'GROUP'
@@ -35,7 +35,7 @@ export function SnapshotTab({ scope }: { scope: EntityCode }) {
   const emissionsByEntity = useMemo(() => {
     const map = new Map<EntityCode, number>();
     for (const rec of state.emissions.filter((e) => e.status !== 'draft')) {
-      map.set(rec.entityCode, (map.get(rec.entityCode) ?? 0) + rec.emissionsTco2e);
+      map.set(rec.entityCode, (map.get(rec.entityCode) ?? 0) + Number(rec.emissionsTco2e));
     }
     return [...map.entries()]
       .map(([code, value]) => ({

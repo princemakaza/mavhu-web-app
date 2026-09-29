@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
+import { cbzApiLogout } from '../../model/cbz/cbz_api';
+import { CbzDataProvider } from '../../model/cbz/CbzDataContext';
 import { cbzSession as sessionStore } from '../../model/cbz/session';
 import { useCbzTheme } from '../../model/cbz/theme';
 import type { CbzSession } from '../../model/cbz/types';
 import { CbzDashboard } from './CbzDashboard';
 import { CbzLogin } from './CbzLogin';
 
-// Top-level flip between login and dashboard. Calling useCbzTheme up here
-// makes sure the <html data-cbz-theme=""> attribute is set the moment either
-// screen renders, so the login inherits the same palette as the app.
-export function CbzApp() {
+function CbzAppInner() {
   const [session, setSession] = useState<CbzSession | null>(null);
   const [ready, setReady] = useState(false);
   useCbzTheme();
@@ -20,8 +19,22 @@ export function CbzApp() {
 
   if (!ready) return null;
 
+  function handleSignOut() {
+    cbzApiLogout();
+    sessionStore.clear();
+    setSession(null);
+  }
+
   if (!session) {
     return <CbzLogin onLogin={setSession} />;
   }
-  return <CbzDashboard session={session} onSignOut={() => setSession(null)} />;
+  return <CbzDashboard session={session} onSignOut={handleSignOut} />;
+}
+
+export function CbzApp() {
+  return (
+    <CbzDataProvider>
+      <CbzAppInner />
+    </CbzDataProvider>
+  );
 }

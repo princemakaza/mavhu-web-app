@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
-import { cbzStore } from '../../../model/cbz/store';
 import { summariseInsurance } from '../../../model/cbz/calculators';
 import type { EntityCode, InsurancePolicy } from '../../../model/cbz/types';
 import { BarChart } from '../components/charts';
@@ -140,6 +140,7 @@ export function InsuranceTab({ scope }: { scope: EntityCode }) {
 }
 
 function BindPolicyModal({ scope, onClose }: { scope: EntityCode; onClose: () => void }) {
+  const { addInsurance } = useCbzData();
   const [segment, setSegment] = useState<InsurancePolicy['segment']>('Commercial lines');
   const [clientName, setClientName] = useState('');
   const [sector, setSector] = useState('');
@@ -166,7 +167,7 @@ function BindPolicyModal({ scope, onClose }: { scope: EntityCode; onClose: () =>
     }
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const p = Number.parseFloat(premium);
@@ -191,22 +192,22 @@ function BindPolicyModal({ scope, onClose }: { scope: EntityCode; onClose: () =>
         return;
       }
     }
+    const attributionFactor = denom ? p / denom : 0.0699;
     try {
-      cbzStore.addInsurance(
-        {
-          segment,
-          subsidiary: scope === 'GROUP' ? 'CBZINS' : scope,
-          clientId: `AD-HOC-${Date.now()}`,
-          clientName: clientName.trim(),
-          sector: sector.trim() || 'Not specified',
-          grossWrittenPremiumUsd: p,
-          denominatorType: denomLabel(),
-          denominatorValueUsd: denom,
-          clientTotalEmissions: emis,
-          dqScore,
-        },
-        'demo user',
-      );
+      await addInsurance({
+        segment,
+        subsidiary: scope === 'GROUP' ? 'CBZINS' : scope,
+        clientId: `AD-HOC-${Date.now()}`,
+        clientName: clientName.trim(),
+        sector: sector.trim() || 'Not specified',
+        grossWrittenPremiumUsd: p,
+        denominatorType: denomLabel(),
+        denominatorValueUsd: denom,
+        clientTotalEmissions: emis,
+        attributionFactor,
+        insuranceAssociatedEmissions: attributionFactor * emis,
+        dqScore,
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save policy.');

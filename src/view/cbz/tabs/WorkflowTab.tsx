@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
-import { cbzStore } from '../../../model/cbz/store';
 import type { CbzSession, EmissionRecord, EntityCode } from '../../../model/cbz/types';
 import { EmptyState, Panel, StatCard, StatusBadge, fmtDateTime, fmtT } from '../components/primitives';
 
@@ -8,6 +8,7 @@ const FLOW: EmissionRecord['status'][] = ['draft', 'in_review', 'approved', 'loc
 
 export function WorkflowTab({ scope, session }: { scope: EntityCode; session: CbzSession }) {
   const state = useCbz();
+  const { advanceEmission } = useCbzData();
   const [filter, setFilter] = useState<EmissionRecord['status'] | 'all'>('all');
 
   const records = useMemo(
@@ -108,7 +109,7 @@ export function WorkflowTab({ scope, session }: { scope: EntityCode; session: Cb
                       <button
                         type="button"
                         className="cbz-btn cbz-btn--sm cbz-btn--primary"
-                        onClick={() => cbzStore.advanceEmissionStatus(r.id, session.fullName)}
+                        onClick={() => advanceEmission(r.id, session.fullName)}
                       >
                         Advance →
                       </button>

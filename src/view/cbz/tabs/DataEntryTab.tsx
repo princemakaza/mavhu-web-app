@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { cbzStore } from '../../../model/cbz/store';
+import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
 import type { CbzSession, EmissionRecord, EntityCode, Scope } from '../../../model/cbz/types';
 import { EmptyState, Panel, StatCard, StatusBadge, fmtDateTime, fmtT } from '../components/primitives';
@@ -35,6 +35,7 @@ const PRESETS: UnitPreset[] = [
 
 export function DataEntryTab({ session, scope }: { session: CbzSession; scope: EntityCode }) {
   const state = useCbz();
+  const { addEmission, addIngestionBatch } = useCbzData();
   const [tab, setTab] = useState<'form' | 'file'>('form');
   const [preset, setPreset] = useState(0);
   const [site, setSite] = useState('Head Office');
@@ -59,7 +60,7 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
     return (val * p.factor) / 1000;
   }, [activity, p.factor]);
 
-  function submitForm(e: React.FormEvent) {
+  async function submitForm(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -73,26 +74,23 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
       return;
     }
     try {
-      const record = cbzStore.addEmission(
-        {
-          entityCode: targetEntity,
-          site: site.trim(),
-          period,
-          scope: p.scope,
-          datasetType: p.dataset,
-          activityData: val,
-          unit: p.units[0],
-          emissionFactorKgPerUnit: p.factor,
-          emissionsKgCo2e: +(val * p.factor).toFixed(3),
-          emissionsTco2e: +((val * p.factor) / 1000).toFixed(4),
-          method: p.method,
-          dataQuality: dq,
-          sourceRef: notes.trim() || `Manual entry via dashboard — ${session.fullName}`,
-          submittedBy: session.memberId,
-          status: 'draft',
-        },
-        session.fullName,
-      );
+      const record = await addEmission({
+        entityCode: targetEntity,
+        site: site.trim(),
+        period,
+        scope: p.scope,
+        datasetType: p.dataset,
+        activityData: val,
+        unit: p.units[0],
+        emissionFactorKgPerUnit: p.factor,
+        emissionsKgCo2e: +(val * p.factor).toFixed(3),
+        emissionsTco2e: +((val * p.factor) / 1000).toFixed(4),
+        method: p.method,
+        dataQuality: dq,
+        sourceRef: notes.trim() || `Manual entry via dashboard — ${session.fullName}`,
+        submittedBy: session.memberId,
+        status: 'draft',
+      });
       setSuccess(`Saved ${record.id} · ${record.emissionsTco2e.toFixed(3)} tCO2e for ${record.entityCode} (${record.period}).`);
       setActivity('');
       setNotes('');
@@ -121,7 +119,7 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
     reader.readAsText(file);
   }
 
-  function commitBatch() {
+  async function commitBatch() {
     if (!parsedRows || parsedRows.length === 0) return;
     let saved = 0;
     let rejected = 0;
@@ -133,8 +131,8 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
         continue;
       }
       const emissionsKg = row.activity! * row.factor!;
-      cbzStore.addEmission(
-        {
+      try {
+        await addEmission({
           entityCode: row.entity!,
           site: row.site!,
           period: row.period!,
@@ -150,23 +148,21 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
           sourceRef: fileName ?? 'file upload',
           submittedBy: session.memberId,
           status: 'draft',
-        },
-        session.fullName,
-      );
-      saved += 1;
+        });
+        saved += 1;
+      } catch {
+        rejected += 1;
+      }
     }
-    cbzStore.addIngestionBatch(
-      {
-        fileName: fileName ?? 'uploaded.csv',
-        channel: 'File Ingester (manual upload)',
-        subsidiary: targetEntity,
-        recordsProcessed: saved,
-        validationStatus: rejected === 0 ? 'Success' : saved === 0 ? 'Failure' : 'Partial',
-        errorDetails: rejected === 0 ? 'n/a' : details.slice(0, 3).join(' · '),
-        notificationSent: rejected > 0,
-      },
-      session.fullName,
-    );
+    await addIngestionBatch({
+      fileName: fileName ?? 'uploaded.csv',
+      channel: 'File Ingester (manual upload)',
+      subsidiary: targetEntity,
+      recordsProcessed: saved,
+      validationStatus: rejected === 0 ? 'Success' : saved === 0 ? 'Failure' : 'Partial',
+      errorDetails: rejected === 0 ? 'n/a' : details.slice(0, 3).join(' · '),
+      notificationSent: rejected > 0,
+    });
     setFileName(null);
     setParsedRows(null);
     if (fileInputRef.current) fileInputRef.current.value = '';

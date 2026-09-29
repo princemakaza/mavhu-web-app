@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { cbzStore } from '../../../model/cbz/store';
+import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
 import type { CbzSession, DepartmentKind, EntityCode, Member } from '../../../model/cbz/types';
 import { EmptyState, Panel, StatCard, fmtDateTime } from '../components/primitives';
@@ -185,6 +185,7 @@ export function MembersTab({ session }: { session: CbzSession }) {
 
 function AddDepartmentModal({ onClose, actor }: { onClose: () => void; actor: string }) {
   const state = useCbz();
+  const { refresh } = useCbzData();
   const [entityCode, setEntityCode] = useState<EntityCode>(state.entities[0]?.code ?? 'CBZBANK');
   const [name, setName] = useState('');
   const [kind, setKind] = useState<DepartmentKind>('Commercial Banking');
@@ -192,7 +193,7 @@ function AddDepartmentModal({ onClose, actor }: { onClose: () => void; actor: st
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!name.trim() || !head.trim() || !email.trim()) {
@@ -200,7 +201,12 @@ function AddDepartmentModal({ onClose, actor }: { onClose: () => void; actor: st
       return;
     }
     try {
-      cbzStore.addDepartment({ entityCode, name: name.trim(), kind, headOfDept: head.trim(), email: email.trim() }, actor);
+      await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3004/api/v1'}/cbz/departments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('cbz_token') ? { Authorization: `Bearer ${localStorage.getItem('cbz_token')}` } : {}) },
+        body: JSON.stringify({ entityCode, name: name.trim(), kind, headOfDept: head.trim(), email: email.trim() }),
+      });
+      await refresh();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add department.');
@@ -269,8 +275,9 @@ function AddDepartmentModal({ onClose, actor }: { onClose: () => void; actor: st
   );
 }
 
-function AddMemberModal({ onClose, actor, customerOnly }: { onClose: () => void; actor: string; customerOnly: boolean }) {
+function AddMemberModal({ onClose, actor: _actor, customerOnly }: { onClose: () => void; actor: string; customerOnly: boolean }) {
   const state = useCbz();
+  const { refresh } = useCbzData();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -281,7 +288,7 @@ function AddMemberModal({ onClose, actor, customerOnly }: { onClose: () => void;
 
   const departmentsForEntity = state.departments.filter((d) => d.entityCode === entityCode);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!fullName.trim() || !email.trim()) {
@@ -293,17 +300,20 @@ function AddMemberModal({ onClose, actor, customerOnly }: { onClose: () => void;
       return;
     }
     try {
-      cbzStore.addMember(
-        {
+      await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3004/api/v1'}/cbz/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('cbz_token') ? { Authorization: `Bearer ${localStorage.getItem('cbz_token')}` } : {}) },
+        body: JSON.stringify({
           fullName: fullName.trim(),
           email: email.trim(),
           phone: phone.trim() || 'n/a',
           entityCode,
           departmentId: departmentId || null,
           role: customerOnly ? 'customer' : role,
-        },
-        actor,
-      );
+          password: 'cbz-demo',
+        }),
+      });
+      await refresh();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save member.');

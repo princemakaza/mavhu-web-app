@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
-import { cbzStore } from '../../../model/cbz/store';
 import { calculatePcaf, summarisePortfolio } from '../../../model/cbz/calculators';
 import { ASSET_CLASS_LABEL } from '../../../model/cbz/types';
 import type { AssetClass, CbzSession, Counterparty, EntityCode } from '../../../model/cbz/types';
@@ -223,6 +223,7 @@ function AddPositionModal({
   onClose: () => void;
   actor: string;
 }) {
+  const { addCounterparty, addFinancedPosition } = useCbzData();
   const [mode, setMode] = useState<'existing' | 'new'>(counterparties.length > 0 ? 'existing' : 'new');
   const [counterpartyId, setCounterpartyId] = useState(counterparties[0]?.id ?? '');
   const [outstanding, setOutstanding] = useState('');
@@ -258,7 +259,7 @@ function AddPositionModal({
     }
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const out = Number.parseFloat(outstanding);
@@ -312,23 +313,20 @@ function AddPositionModal({
             financials.uopStructureValue = denom;
             break;
         }
-        const cp = cbzStore.addCounterparty(
-          {
-            name: name.trim(),
-            sector: sector.trim() || 'Not specified',
-            listedStatus: 'Unlisted',
-            assetClass,
-            subsidiary: scope === 'GROUP' ? 'CBZBANK' : scope,
-            financials,
-            totalEmissionsTco2e: emis,
-            dqScore,
-            mrvEnhanced: false,
-          },
-          actor,
-        );
+        const cp = await addCounterparty({
+          name: name.trim(),
+          sector: sector.trim() || 'Not specified',
+          listedStatus: 'Unlisted',
+          assetClass,
+          subsidiary: scope === 'GROUP' ? 'CBZBANK' : scope,
+          financials,
+          totalEmissionsTco2e: emis,
+          dqScore,
+          mrvEnhanced: false,
+        });
         cpId = cp.id;
       }
-      cbzStore.addFinancedPosition({ counterpartyId: cpId, outstandingAmountUsd: out, period }, actor);
+      await addFinancedPosition({ counterpartyId: cpId, outstandingAmountUsd: out, period });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save position.');
