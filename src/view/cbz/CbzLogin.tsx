@@ -1,37 +1,33 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { cbzApiLogin } from '../../model/cbz/cbz_api';
-import { useCbzData } from '../../model/cbz/CbzDataContext';
 import { cbzSession } from '../../model/cbz/session';
-import type { CbzSession, Member } from '../../model/cbz/types';
+import type { CbzSession } from '../../model/cbz/types';
 
 interface Props {
   onLogin: (session: CbzSession) => void;
 }
 
+/**
+ * Sign-in for every client bank's users (CBZ, Stanbic, FBC, …). Nothing about any bank is shown
+ * before sign-in; the account decides which bank's dashboard loads.
+ */
 export function CbzLogin({ onLogin }: Props) {
-  const { state } = useCbzData();
-  const [email, setEmail] = useState('anesu.mutasa@cbzholdings.co.zw');
-  const [password, setPassword] = useState('cbz-demo');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [showList, setShowList] = useState(false);
-
-  const membersByEntity = useMemo(() => {
-    const groups = new Map<string, Member[]>();
-    for (const m of state.members) {
-      const key = m.entityCode;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(m);
-    }
-    return groups;
-  }, [state.members]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!email.trim() || !password) {
+      setError('Enter your work email and password.');
+      return;
+    }
     setSubmitting(true);
     try {
-      const { member, token: _ } = await cbzApiLogin(email.trim(), password);
+      const { member } = await cbzApiLogin(email.trim(), password);
       const session: CbzSession = {
         memberId: member.id,
         fullName: member.fullName,
@@ -42,36 +38,30 @@ export function CbzLogin({ onLogin }: Props) {
       };
       cbzSession.save(session);
       onLogin(session);
-    } catch {
-      setError('Invalid email or password.');
+    } catch (err) {
+      // The server explains deactivated accounts and suspended banks; anything else is bad credentials.
+      const message = err instanceof Error ? err.message : '';
+      setError(/deactivated|suspended/i.test(message) ? message : 'Invalid email or password.');
     } finally {
       setSubmitting(false);
     }
   }
-
-  function pick(member: Member) {
-    setEmail(member.email);
-    setPassword('cbz-demo');
-    setShowList(false);
-  }
-
-  const entityLabel = (code: string) => state.entities.find((e) => e.code === code)?.name ?? code;
 
   return (
     <div className="cbz-login">
       <div className="cbz-login__panel">
         <div className="cbz-login__pitch">
           <div className="cbz-login__brand">
-            <span className="cbz-login__mark">CBZ</span>
+            <span className="cbz-login__mark">MAvHU</span>
             <div>
-              <div className="cbz-login__mark-title">CBZ Holdings</div>
-              <div className="cbz-login__mark-sub">ESG &amp; Climate Risk Platform</div>
+              <div className="cbz-login__mark-title">MAvHU ESG Platform</div>
+              <div className="cbz-login__mark-sub">Bank ESG &amp; Climate Risk portal</div>
             </div>
           </div>
           <h1>Assurance-ready ESG for every subsidiary.</h1>
           <p>
-            Group-wide dashboard for Scope 1–3, financed &amp; insurance-associated emissions, workforce and
-            governance — assembled from the same PCAF-compliant primitives that power the audit trail.
+            Group-wide dashboard for Scope 1–3, financed &amp; insurance-associated emissions, workforce and governance,
+            built on PCAF-compliant calculations and a full audit trail.
           </p>
           <ul className="cbz-login__pills">
             <li>PCAF Parts A, B, C</li>
@@ -80,69 +70,29 @@ export function CbzLogin({ onLogin }: Props) {
             <li>RBZ · IPEC · SECZim</li>
           </ul>
           <div className="cbz-login__foot">
-            Powered by <strong>MAvHU</strong> — Africa's climate MRV backbone.
+            Powered by <strong>MAvHU</strong>, Africa's climate MRV backbone.
           </div>
         </div>
         <form className="cbz-login__form" onSubmit={submit} noValidate>
           <div className="cbz-login__form-head">
             <h2>Sign in</h2>
-            <p>Use your CBZ Holdings email and password.</p>
+            <p>Use the work email your bank's administrator registered for you.</p>
           </div>
           <label className="cbz-field">
             <span>Work email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@cbz.co.zw"
-              autoComplete="username"
-              required
-            />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@yourbank.co.zw" autoComplete="username" required />
           </label>
           <label className="cbz-field">
             <span>Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-              required
-            />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" required />
           </label>
           {error && <p className="cbz-alert cbz-alert--danger">{error}</p>}
           <button type="submit" className="cbz-btn cbz-btn--primary cbz-btn--block" disabled={submitting}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
-          <button
-            type="button"
-            className="cbz-btn cbz-btn--ghost cbz-btn--block"
-            onClick={() => setShowList((v) => !v)}
-          >
-            {showList ? 'Hide' : 'Pick a demo account'}
-          </button>
-          {showList && (
-            <div className="cbz-login__picker">
-              {[...membersByEntity.entries()].map(([entityCode, members]) => (
-                <div key={entityCode} className="cbz-login__picker-group">
-                  <div className="cbz-login__picker-title">{entityLabel(entityCode)}</div>
-                  <ul>
-                    {members.map((m) => (
-                      <li key={m.id}>
-                        <button type="button" onClick={() => pick(m)}>
-                          <div>
-                            <strong>{m.fullName}</strong>
-                            <span className="cbz-chip cbz-chip--sm cbz-chip--role">{m.role}</span>
-                          </div>
-                          <span className="cbz-muted">{m.email}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="cbz-muted cbz-login__admin-link">
+            MAvHU team? <Link to="/admin">Sign in to the admin console →</Link>
+          </p>
         </form>
       </div>
     </div>

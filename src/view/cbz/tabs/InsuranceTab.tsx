@@ -140,7 +140,10 @@ export function InsuranceTab({ scope }: { scope: EntityCode }) {
 }
 
 function BindPolicyModal({ scope, onClose }: { scope: EntityCode; onClose: () => void }) {
-  const { addInsurance } = useCbzData();
+  const { state, addInsurance } = useCbzData();
+  // At Group scope, bind to the bank's insurance subsidiary (PCAF Part C), else its first subsidiary.
+  const groupDefault =
+    state.entities.find((e) => /insur/i.test(e.segment) || /\bC\b/.test(e.pcafApplicable))?.code ?? state.entities[0]?.code ?? '';
   const [segment, setSegment] = useState<InsurancePolicy['segment']>('Commercial lines');
   const [clientName, setClientName] = useState('');
   const [sector, setSector] = useState('');
@@ -196,7 +199,7 @@ function BindPolicyModal({ scope, onClose }: { scope: EntityCode; onClose: () =>
     try {
       await addInsurance({
         segment,
-        subsidiary: scope === 'GROUP' ? 'CBZINS' : scope,
+        subsidiary: scope === 'GROUP' ? groupDefault : scope,
         clientId: `AD-HOC-${Date.now()}`,
         clientName: clientName.trim(),
         sector: sector.trim() || 'Not specified',

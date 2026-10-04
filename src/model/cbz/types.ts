@@ -1,21 +1,13 @@
-// Domain types for the CBZ ESG platform. Field names mirror the RFP data dictionary
+// Domain types for the bank ESG dashboard (every client bank: CBZ, Stanbic, FBC, …). Field names mirror the RFP data dictionary
 // (entityId / period / metricCode / value / unit / method / dataQuality / sourceRef / status)
 // so the same records can be posted to the real REST API later without renaming.
 
-export type EntityCode =
-  | 'CBZBANK'
-  | 'CBZCAP'
-  | 'DATVEST'
-  | 'CBZAGRO'
-  | 'CBZPROP'
-  | 'CBZINS'
-  | 'CBZLIFE'
-  | 'CBZRISK'
-  | 'CBZRED'
-  | 'GROUP';
+/** A subsidiary code from the signed-in bank's own entity list (e.g. STANBANK), or 'GROUP' for the roll-up. */
+export type EntityCode = string;
 
 export interface BankEntity {
   code: EntityCode;
+  bankId?: number;
   name: string;
   segment: string;
   regulator: string;
@@ -51,7 +43,9 @@ export interface Member {
   phone: string;
   entityCode: EntityCode;
   departmentId: string | null;
-  role: 'admin' | 'contributor' | 'approver' | 'reader' | 'customer';
+  // auditor = read-only assurer (RFP F19/F38): sees everything, changes nothing.
+  role: 'admin' | 'contributor' | 'approver' | 'reader' | 'auditor' | 'customer';
+  isActive?: boolean;
   createdAt: string;
 }
 
@@ -288,6 +282,25 @@ export interface CbzStoreState {
   geospatial: GeospatialRecord[];
   ingestion: IngestionBatch[];
   audit: AuditEntry[];
+}
+
+/** The bank a dashboard session is scoped to, and the tabs it has licensed. */
+export interface BankInfo {
+  id: number;
+  name: string;
+  identifier: string;
+  country: string;
+  status: 'onboarding' | 'active' | 'suspended';
+  modules: string[];
+}
+
+export interface ReportingPeriod {
+  id: number;
+  bankId: number;
+  period: string;
+  status: 'open' | 'locked';
+  lockedBy: string | null;
+  lockedAt: string | null;
 }
 
 export interface CbzSession {

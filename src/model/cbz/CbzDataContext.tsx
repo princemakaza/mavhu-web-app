@@ -10,6 +10,7 @@ import {
   apiAdvanceEmission,
   apiAppendAudit,
   fetchAudit,
+  fetchBank,
   fetchCounterparties,
   fetchDepartments,
   fetchEmissions,
@@ -21,11 +22,15 @@ import {
   fetchIngestion,
   fetchInsurance,
   fetchMembers,
+  fetchPeriods,
   fetchRisks,
   fetchWorkforce,
+  hasCbzCredentials,
+  setCbzAdminView,
 } from './cbz_api';
 import type {
   AuditEntry,
+  BankInfo,
   CbzStoreState,
   Counterparty,
   EmissionRecord,
@@ -35,6 +40,7 @@ import type {
   Incident,
   IngestionBatch,
   InsurancePolicy,
+  ReportingPeriod,
   RiskEntry,
   WorkforceRecord,
 } from './types';
@@ -134,6 +140,9 @@ const EMPTY_STATE: CbzStoreState = {
 
 interface CbzDataContextValue {
   state: CbzStoreState;
+  /** The bank this dashboard is scoped to; null until the first load finishes. */
+  bank: BankInfo | null;
+  periods: ReportingPeriod[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -150,15 +159,43 @@ interface CbzDataContextValue {
 
 const CbzDataContext = createContext<CbzDataContextValue | null>(null);
 
-export function CbzDataProvider({ children }: { children: React.ReactNode }) {
+interface ProviderProps {
+  children: React.ReactNode;
+  /** Set when a MAvHU admin views a bank: requests use the admin's token and ?bankId=. */
+  adminView?: { token: string; bankId: number };
+}
+
+export function CbzDataProvider({ children, adminView }: ProviderProps) {
+  // Only one provider is mounted at a time (bank portal or admin view), so it owns the
+  // API client's scope and re-applies it before every load.
+  const adminViewRef = useRef(adminView);
+  adminViewRef.current = adminView;
   const [state, setState] = useState<CbzStoreState>(EMPTY_STATE);
+  const [bank, setBank] = useState<BankInfo | null>(null);
+  const [periods, setPeriods] = useState<ReportingPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchingRef = useRef(false);
+  // A refresh requested mid-load (e.g. right after sign-in) must still run, against the new token.
+  const pendingRef = useRef(false);
 
-  const refresh = useCallback(async () => {
-    if (fetchingRef.current) return;
+  const refresh = useCallback(async (): Promise<void> => {
+    if (fetchingRef.current) {
+      pendingRef.current = true;
+      return;
+    }
     fetchingRef.current = true;
+    setCbzAdminView(adminViewRef.current ?? null);
+    if (!hasCbzCredentials()) {
+      // Signed out: drop whatever bank was loaded before; the API serves nothing anonymously.
+      setState(EMPTY_STATE);
+      setBank(null);
+      setPeriods([]);
+      setError(null);
+      setLoading(false);
+      fetchingRef.current = false;
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -177,6 +214,8 @@ export function CbzDataProvider({ children }: { children: React.ReactNode }) {
         geospatial,
         ingestion,
         audit,
+        bankInfo,
+        periodRows,
       ] = await Promise.all([
         fetchEntities(),
         fetchDepartments(),
@@ -192,7 +231,11 @@ export function CbzDataProvider({ children }: { children: React.ReactNode }) {
         fetchGeospatial(),
         fetchIngestion(),
         fetchAudit(),
+        fetchBank(),
+        fetchPeriods(),
       ]);
+      setBank(bankInfo);
+      setPeriods(periodRows);
       setState({
         entities,
         departments,
@@ -214,6 +257,10 @@ export function CbzDataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
       fetchingRef.current = false;
+    }
+    if (pendingRef.current) {
+      pendingRef.current = false;
+      await refresh();
     }
   }, []);
 
@@ -279,6 +326,8 @@ export function CbzDataProvider({ children }: { children: React.ReactNode }) {
     <CbzDataContext.Provider
       value={{
         state,
+        bank,
+        periods,
         loading,
         error,
         refresh,

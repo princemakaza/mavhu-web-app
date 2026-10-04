@@ -223,7 +223,9 @@ function AddPositionModal({
   onClose: () => void;
   actor: string;
 }) {
-  const { addCounterparty, addFinancedPosition } = useCbzData();
+  const { state, addCounterparty, addFinancedPosition } = useCbzData();
+  // At Group scope a new counterparty lands in the bank's first subsidiary, never a hard-coded one.
+  const groupDefault = state.entities[0]?.code ?? '';
   const [mode, setMode] = useState<'existing' | 'new'>(counterparties.length > 0 ? 'existing' : 'new');
   const [counterpartyId, setCounterpartyId] = useState(counterparties[0]?.id ?? '');
   const [outstanding, setOutstanding] = useState('');
@@ -318,7 +320,7 @@ function AddPositionModal({
           sector: sector.trim() || 'Not specified',
           listedStatus: 'Unlisted',
           assetClass,
-          subsidiary: scope === 'GROUP' ? 'CBZBANK' : scope,
+          subsidiary: scope === 'GROUP' ? groupDefault : scope,
           financials,
           totalEmissionsTco2e: emis,
           dqScore,

@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
 import type { CbzSession, EmissionRecord, EntityCode, Scope } from '../../../model/cbz/types';
+import { BulkImport } from '../components/BulkImport';
 import { EmptyState, Panel, StatCard, StatusBadge, fmtDateTime, fmtT } from '../components/primitives';
 
 type UnitPreset = {
@@ -12,7 +13,7 @@ type UnitPreset = {
   method: EmissionRecord['method'];
 };
 
-// Emission-factor library — matches the illustrative factors in the CBZ sample
+// Emission-factor library — matches the illustrative factors in the ESG sample
 // dataset. Real system reads these from the reference-data endpoint.
 const PRESETS: UnitPreset[] = [
   { scope: 'scope1', dataset: 'Fleet fuel — Diesel', units: ['litres'], factor: 2.68, method: 'activity-based' },
@@ -35,7 +36,7 @@ const PRESETS: UnitPreset[] = [
 
 export function DataEntryTab({ session, scope }: { session: CbzSession; scope: EntityCode }) {
   const state = useCbz();
-  const { addEmission, addIngestionBatch } = useCbzData();
+  const { addEmission, refresh } = useCbzData();
   const [tab, setTab] = useState<'form' | 'file'>('form');
   const [preset, setPreset] = useState(0);
   const [site, setSite] = useState('Head Office');
@@ -45,11 +46,6 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [parsedRows, setParsedRows] = useState<ParsedRow[] | null>(null);
-  const [parseError, setParseError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const targetEntity: EntityCode = scope === 'GROUP' ? session.entityCode : scope;
   const p = PRESETS[preset];
@@ -99,76 +95,6 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
     }
   }
 
-  function handleFile(fileList: FileList | null) {
-    setParseError(null);
-    setParsedRows(null);
-    const file = fileList?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const text = String(reader.result ?? '');
-        const rows = parseCsv(text);
-        setParsedRows(rows);
-      } catch (err) {
-        setParseError(err instanceof Error ? err.message : 'Could not parse file.');
-      }
-    };
-    reader.onerror = () => setParseError('Could not read file.');
-    reader.readAsText(file);
-  }
-
-  async function commitBatch() {
-    if (!parsedRows || parsedRows.length === 0) return;
-    let saved = 0;
-    let rejected = 0;
-    const details: string[] = [];
-    for (const row of parsedRows) {
-      if (row.error) {
-        rejected += 1;
-        details.push(`${row.rowNumber}: ${row.error}`);
-        continue;
-      }
-      const emissionsKg = row.activity! * row.factor!;
-      try {
-        await addEmission({
-          entityCode: row.entity!,
-          site: row.site!,
-          period: row.period!,
-          scope: row.scope!,
-          datasetType: row.datasetType!,
-          activityData: row.activity!,
-          unit: row.unit!,
-          emissionFactorKgPerUnit: row.factor!,
-          emissionsKgCo2e: emissionsKg,
-          emissionsTco2e: emissionsKg / 1000,
-          method: 'activity-based',
-          dataQuality: (row.dq ?? 3) as 1 | 2 | 3 | 4 | 5,
-          sourceRef: fileName ?? 'file upload',
-          submittedBy: session.memberId,
-          status: 'draft',
-        });
-        saved += 1;
-      } catch {
-        rejected += 1;
-      }
-    }
-    await addIngestionBatch({
-      fileName: fileName ?? 'uploaded.csv',
-      channel: 'File Ingester (manual upload)',
-      subsidiary: targetEntity,
-      recordsProcessed: saved,
-      validationStatus: rejected === 0 ? 'Success' : saved === 0 ? 'Failure' : 'Partial',
-      errorDetails: rejected === 0 ? 'n/a' : details.slice(0, 3).join(' · '),
-      notificationSent: rejected > 0,
-    });
-    setFileName(null);
-    setParsedRows(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    setSuccess(`Ingested ${saved} record(s), rejected ${rejected}. Batch logged to audit trail.`);
-  }
-
   const recentBatches = state.ingestion.filter((b) => scope === 'GROUP' || b.subsidiary === scope).slice(0, 6);
   const recentDrafts = state.emissions
     .filter((r) => (scope === 'GROUP' || r.entityCode === scope) && r.submittedBy === session.memberId)
@@ -203,14 +129,14 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
 
       <Panel
         title="Add emissions data"
-        subtitle="Enter a value directly or upload a CSV. Everything you submit lands as draft and needs approval."
+        subtitle="Enter a value directly, or bulk-import an Excel workbook or CSV. Everything you submit lands as draft and needs approval."
       >
         <div className="cbz-tabs">
           <button type="button" className={`cbz-tabs__tab ${tab === 'form' ? 'is-active' : ''}`} onClick={() => setTab('form')}>
             Manual form
           </button>
           <button type="button" className={`cbz-tabs__tab ${tab === 'file' ? 'is-active' : ''}`} onClick={() => setTab('file')}>
-            CSV upload
+            Bulk import (Excel / CSV)
           </button>
         </div>
 
@@ -291,93 +217,7 @@ export function DataEntryTab({ session, scope }: { session: CbzSession; scope: E
           </form>
         )}
 
-        {tab === 'file' && (
-          <div className="cbz-form">
-            <div className="cbz-file-drop">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(e) => handleFile(e.target.files)}
-              />
-              <div className="cbz-file-drop__label">
-                <strong>Drop a CSV or click to browse.</strong>
-                <p className="cbz-muted">
-                  Header row required. Columns:{' '}
-                  <code>entity_code, site, period, scope, dataset_type, activity_data, unit, emission_factor, data_quality</code>
-                </p>
-                <p className="cbz-muted">Values are validated per row; the batch is logged to the audit trail whether successful or partial.</p>
-              </div>
-            </div>
-
-            {fileName && <p className="cbz-alert cbz-alert--info">Reading: <strong>{fileName}</strong></p>}
-            {parseError && <p className="cbz-alert cbz-alert--danger">{parseError}</p>}
-
-            {parsedRows && parsedRows.length > 0 && (
-              <>
-                <div className="cbz-table-wrap">
-                  <table className="cbz-table cbz-table--compact">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Entity</th>
-                        <th>Site</th>
-                        <th>Period</th>
-                        <th>Scope</th>
-                        <th>Dataset</th>
-                        <th className="cbz-num">Activity</th>
-                        <th>Unit</th>
-                        <th className="cbz-num">Factor</th>
-                        <th className="cbz-num">→ tCO2e</th>
-                        <th>Validation</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {parsedRows.map((row) => (
-                        <tr key={row.rowNumber} className={row.error ? 'cbz-row--error' : ''}>
-                          <td>{row.rowNumber}</td>
-                          <td>{row.entity ?? '—'}</td>
-                          <td>{row.site ?? '—'}</td>
-                          <td>{row.period ?? '—'}</td>
-                          <td>{row.scope ?? '—'}</td>
-                          <td>{row.datasetType ?? '—'}</td>
-                          <td className="cbz-num">{row.activity ?? '—'}</td>
-                          <td>{row.unit ?? '—'}</td>
-                          <td className="cbz-num">{row.factor ?? '—'}</td>
-                          <td className="cbz-num">
-                            {row.activity && row.factor ? fmtT((row.activity * row.factor) / 1000, 3) : '—'}
-                          </td>
-                          <td>
-                            {row.error ? (
-                              <span className="cbz-badge cbz-badge--ingest-failure">{row.error}</span>
-                            ) : (
-                              <span className="cbz-badge cbz-badge--ingest-success">OK</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="cbz-form__actions">
-                  <button type="button" className="cbz-btn cbz-btn--ghost" onClick={() => { setParsedRows(null); setFileName(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}>
-                    Discard
-                  </button>
-                  <button type="button" className="cbz-btn cbz-btn--primary" onClick={commitBatch}>
-                    Ingest {parsedRows.filter((r) => !r.error).length} valid rows
-                  </button>
-                </div>
-              </>
-            )}
-
-            <details className="cbz-details">
-              <summary>See CSV template</summary>
-              <pre className="cbz-code">{`entity_code,site,period,scope,dataset_type,activity_data,unit,emission_factor,data_quality
-CBZBANK,Harare Head Office,2026-09,scope1,Fleet fuel — Diesel,2350,litres,2.68,2
-CBZBANK,Harare Head Office,2026-09,scope2,Grid electricity (location-based),84000,kWh,0.65,2`}</pre>
-            </details>
-          </div>
-        )}
+        {tab === 'file' && <BulkImport onImported={refresh} />}
       </Panel>
 
       <div className="cbz-grid cbz-grid--halves">
@@ -460,62 +300,3 @@ CBZBANK,Harare Head Office,2026-09,scope2,Grid electricity (location-based),8400
   );
 }
 
-interface ParsedRow {
-  rowNumber: number;
-  entity?: EntityCode;
-  site?: string;
-  period?: string;
-  scope?: Scope;
-  datasetType?: string;
-  activity?: number;
-  unit?: string;
-  factor?: number;
-  dq?: number;
-  error?: string;
-}
-
-const VALID_ENTITIES: EntityCode[] = ['CBZBANK', 'CBZCAP', 'DATVEST', 'CBZAGRO', 'CBZPROP', 'CBZINS', 'CBZLIFE', 'CBZRISK', 'CBZRED'];
-const VALID_SCOPES: Scope[] = ['scope1', 'scope2', 'scope3'];
-
-function parseCsv(text: string): ParsedRow[] {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) {
-    throw new Error('CSV needs a header row and at least one data row.');
-  }
-  const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
-  const required = ['entity_code', 'site', 'period', 'scope', 'dataset_type', 'activity_data', 'unit', 'emission_factor', 'data_quality'];
-  for (const col of required) {
-    if (!header.includes(col)) {
-      throw new Error(`Missing required column: ${col}`);
-    }
-  }
-  const idx = (col: string) => header.indexOf(col);
-  const rows: ParsedRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    const cells = line.split(',').map((c) => c.trim());
-    const row: ParsedRow = { rowNumber: i };
-    const entity = cells[idx('entity_code')] as EntityCode;
-    const scope = cells[idx('scope')] as Scope;
-    const activity = Number.parseFloat(cells[idx('activity_data')]);
-    const factor = Number.parseFloat(cells[idx('emission_factor')]);
-    const dq = Number.parseInt(cells[idx('data_quality')], 10);
-    row.entity = entity;
-    row.site = cells[idx('site')];
-    row.period = cells[idx('period')];
-    row.scope = scope;
-    row.datasetType = cells[idx('dataset_type')];
-    row.unit = cells[idx('unit')];
-    row.activity = activity;
-    row.factor = factor;
-    row.dq = dq;
-    if (!VALID_ENTITIES.includes(entity)) row.error = `Unknown entity_code ${entity}`;
-    else if (!VALID_SCOPES.includes(scope)) row.error = `Unknown scope ${scope}`;
-    else if (!Number.isFinite(activity) || activity <= 0) row.error = 'Invalid activity_data';
-    else if (!Number.isFinite(factor) || factor <= 0) row.error = 'Invalid emission_factor';
-    else if (!Number.isFinite(dq) || dq < 1 || dq > 5) row.error = 'Invalid data_quality (1-5)';
-    rows.push(row);
-  }
-  return rows;
-}

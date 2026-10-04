@@ -3,7 +3,17 @@
 // lifted server-side later. The math does not change; only where it runs.
 
 import { ASSET_CLASS_DENOMINATOR } from './types';
-import type { Counterparty, FinancedPosition, InsurancePolicy } from './types';
+import type { Counterparty, FinancedPosition, InsurancePolicy, WorkforceRecord } from './types';
+
+/** Workforce is reported per subsidiary per quarter; headcount must come from each subsidiary's latest quarter only. */
+export function latestWorkforce(rows: WorkforceRecord[]): WorkforceRecord[] {
+  const latest = new Map<string, WorkforceRecord>();
+  for (const row of rows) {
+    const current = latest.get(row.subsidiary);
+    if (!current || row.period > current.period) latest.set(row.subsidiary, row);
+  }
+  return [...latest.values()];
+}
 
 export interface PcafResult {
   attributionFactor: number;

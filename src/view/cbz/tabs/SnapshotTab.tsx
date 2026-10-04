@@ -1,12 +1,17 @@
 import { useMemo } from 'react';
+import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
-import { summariseInsurance, summarisePortfolio } from '../../../model/cbz/calculators';
+import { latestWorkforce, summariseInsurance, summarisePortfolio } from '../../../model/cbz/calculators';
 import type { EntityCode } from '../../../model/cbz/types';
 import { BarChart, DoughnutChart, StackedBar } from '../components/charts';
 import { Panel, StatCard, fmtT, fmtUsd, fmtPct } from '../components/primitives';
 
 export function SnapshotTab({ scope }: { scope: EntityCode }) {
   const state = useCbz();
+  const { bank } = useCbzData();
+  // "CBZ Capital" → "Capital", "Stanbic Wealth" → "Wealth": drop the bank's own name prefix in chart labels.
+  const bankWord = bank?.name.split(' ')[0] ?? '';
+  const shortName = (name: string) => (bankWord && name.startsWith(`${bankWord} `) ? name.slice(bankWord.length + 1) : name);
 
   const inScope = <T extends { entityCode?: EntityCode; subsidiary?: EntityCode }>(items: T[]) =>
     scope === 'GROUP'
@@ -39,15 +44,15 @@ export function SnapshotTab({ scope }: { scope: EntityCode }) {
     }
     return [...map.entries()]
       .map(([code, value]) => ({
-        label: state.entities.find((e) => e.code === code)?.name.replace('CBZ ', '') ?? code,
+        label: shortName(state.entities.find((e) => e.code === code)?.name ?? code),
         value: +value.toFixed(2),
       }))
       .sort((a, b) => b.value - a.value);
-  }, [state.emissions, state.entities]);
+  }, [state.emissions, state.entities, bankWord]);
 
-  const workforce = scope === 'GROUP'
-    ? state.workforce
-    : state.workforce.filter((w) => w.subsidiary === scope);
+  const workforce = latestWorkforce(
+    scope === 'GROUP' ? state.workforce : state.workforce.filter((w) => w.subsidiary === scope),
+  );
   const totalHeadcount = workforce.reduce((s, w) => s + w.headcount, 0);
   const weightedFemale = totalHeadcount === 0
     ? 0

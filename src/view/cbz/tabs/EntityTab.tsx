@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { latestWorkforce } from '../../../model/cbz/calculators';
 import { useCbz } from '../../../model/cbz/useCbz';
 import type { EntityCode } from '../../../model/cbz/types';
 import { BarChart, DoughnutChart } from '../components/charts';
@@ -20,7 +21,7 @@ export function EntityTab({ scope }: { scope: EntityCode }) {
   const scope3 = emissions.filter((e) => e.scope === 'scope3').reduce((s, r) => s + r.emissionsTco2e, 0);
   const total = scope1 + scope2 + scope3;
 
-  const workforce = state.workforce.find((w) => w.subsidiary === scope);
+  const workforce = latestWorkforce(state.workforce.filter((w) => w.subsidiary === scope))[0];
   const departments = state.departments.filter((d) => d.entityCode === scope);
   const members = state.members.filter((m) => m.entityCode === scope);
   const financialInclusion = state.financialInclusion.filter((f) => f.subsidiary === scope);

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { apiAddDepartment, apiAddMember } from '../../../model/cbz/cbz_api';
 import { useCbzData } from '../../../model/cbz/CbzDataContext';
 import { useCbz } from '../../../model/cbz/useCbz';
 import type { CbzSession, DepartmentKind, EntityCode, Member } from '../../../model/cbz/types';
@@ -16,7 +17,7 @@ const DEPT_KINDS: DepartmentKind[] = [
   'Microfinance',
 ];
 
-const ROLES: Array<Member['role']> = ['contributor', 'approver', 'reader', 'customer'];
+const ROLES: Array<Member['role']> = ['contributor', 'approver', 'reader', 'auditor', 'customer'];
 
 export function MembersTab({ session }: { session: CbzSession }) {
   const state = useCbz();
@@ -45,7 +46,7 @@ export function MembersTab({ session }: { session: CbzSession }) {
 
       <Panel
         title="Subsidiaries & departments"
-        subtitle="CBZ's legal entities and the business units under them. Adding a department creates a bucket for members and customers."
+        subtitle="The group's legal entities and the business units under them. Adding a department creates a bucket for members and customers."
         action={
           session.role === 'admin' ? (
             <button type="button" className="cbz-btn cbz-btn--primary" onClick={() => setShowAddDept(true)}>
@@ -186,7 +187,7 @@ export function MembersTab({ session }: { session: CbzSession }) {
 function AddDepartmentModal({ onClose, actor }: { onClose: () => void; actor: string }) {
   const state = useCbz();
   const { refresh } = useCbzData();
-  const [entityCode, setEntityCode] = useState<EntityCode>(state.entities[0]?.code ?? 'CBZBANK');
+  const [entityCode, setEntityCode] = useState<EntityCode>(state.entities[0]?.code ?? '');
   const [name, setName] = useState('');
   const [kind, setKind] = useState<DepartmentKind>('Commercial Banking');
   const [head, setHead] = useState('');
@@ -201,11 +202,7 @@ function AddDepartmentModal({ onClose, actor }: { onClose: () => void; actor: st
       return;
     }
     try {
-      await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3004/api/v1'}/cbz/departments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('cbz_token') ? { Authorization: `Bearer ${localStorage.getItem('cbz_token')}` } : {}) },
-        body: JSON.stringify({ entityCode, name: name.trim(), kind, headOfDept: head.trim(), email: email.trim() }),
-      });
+      await apiAddDepartment({ entityCode, name: name.trim(), kind, headOfDept: head.trim(), email: email.trim() });
       await refresh();
       onClose();
     } catch (err) {
@@ -219,7 +216,7 @@ function AddDepartmentModal({ onClose, actor }: { onClose: () => void; actor: st
         <header className="cbz-modal__head">
           <div>
             <h3>Register a department</h3>
-            <p className="cbz-muted">Business unit inside a CBZ subsidiary.</p>
+            <p className="cbz-muted">Business unit inside a subsidiary.</p>
           </div>
           <button type="button" className="cbz-icon-btn" onClick={onClose} aria-label="Close">
             ×
@@ -281,7 +278,7 @@ function AddMemberModal({ onClose, actor: _actor, customerOnly }: { onClose: () 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [entityCode, setEntityCode] = useState<EntityCode>(state.entities[0]?.code ?? 'CBZBANK');
+  const [entityCode, setEntityCode] = useState<EntityCode>(state.entities[0]?.code ?? '');
   const [departmentId, setDepartmentId] = useState<string | ''>('');
   const [role, setRole] = useState<Member['role']>(customerOnly ? 'customer' : 'contributor');
   const [error, setError] = useState<string | null>(null);
@@ -300,18 +297,14 @@ function AddMemberModal({ onClose, actor: _actor, customerOnly }: { onClose: () 
       return;
     }
     try {
-      await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3004/api/v1'}/cbz/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('cbz_token') ? { Authorization: `Bearer ${localStorage.getItem('cbz_token')}` } : {}) },
-        body: JSON.stringify({
-          fullName: fullName.trim(),
-          email: email.trim(),
-          phone: phone.trim() || 'n/a',
-          entityCode,
-          departmentId: departmentId || null,
-          role: customerOnly ? 'customer' : role,
-          password: 'cbz-demo',
-        }),
+      await apiAddMember({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || 'n/a',
+        entityCode,
+        departmentId: departmentId || null,
+        role: customerOnly ? 'customer' : role,
+        password: 'cbz-demo',
       });
       await refresh();
       onClose();
@@ -329,7 +322,7 @@ function AddMemberModal({ onClose, actor: _actor, customerOnly }: { onClose: () 
             <p className="cbz-muted">
               {customerOnly
                 ? 'Customers get read-only access to their own entity plus a data-entry form. Use this to enable client self-service.'
-                : 'Contributors submit data · approvers sign it off · readers browse.'}
+                : 'Contributors submit data · approvers sign it off · readers browse · auditors review read-only.'}
             </p>
           </div>
           <button type="button" className="cbz-icon-btn" onClick={onClose} aria-label="Close">

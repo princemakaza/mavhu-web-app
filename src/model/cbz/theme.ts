@@ -1,6 +1,6 @@
-// Standalone theme controller so the CBZ shell can flip data-theme on <html>
+// Standalone theme controller so the bank dashboard shell can flip data-theme on <html>
 // without depending on the legacy Mavhu ThemeProvider (which lives inside the
-// old SessionContext). Persists to localStorage under a CBZ-specific key so we
+// old SessionContext). Persists to localStorage under a dashboard-specific key so we
 // don't collide with the Mavhu identity flow's key.
 
 import { useEffect, useState } from 'react';

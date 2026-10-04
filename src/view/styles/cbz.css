@@ -1257,3 +1257,70 @@ body { background: var(--cbz-bg); color: var(--cbz-ink); }
   .cbz-login__pitch { padding: 28px 24px; }
   .cbz-login__form { padding: 24px; }
 }
+
+/* --- MAvHU admin console --- */
+.cbz-chip--role-auditor        { background: var(--cbz-blue-soft); color: var(--cbz-blue); border-color: transparent; }
+.cbz-badge--bank-active        { background: var(--cbz-green-soft); color: var(--cbz-green); }
+.cbz-badge--bank-onboarding    { background: var(--cbz-amber-soft); color: var(--cbz-amber); }
+.cbz-badge--bank-suspended     { background: var(--cbz-red-soft); color: var(--cbz-red); }
+.cbz-badge--rfp-working        { background: var(--cbz-green-soft); color: var(--cbz-green); }
+.cbz-badge--rfp-prototype      { background: var(--cbz-amber-soft); color: var(--cbz-amber); }
+.cbz-badge--rfp-design         { background: var(--cbz-blue-soft); color: var(--cbz-blue); }
+.cbz-badge--rfp-not-built      { background: var(--cbz-red-soft); color: var(--cbz-red); }
+
+.cbz-nav__mark--mavhu { background: var(--cbz-ink); }
+
+.cbz-admin-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cbz-login__admin-link { text-align: center; font-size: 0.82rem; margin: 4px 0 0; }
+.cbz-login__admin-link a { color: var(--cbz-brand); font-weight: 600; }
+
+.cbz-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px 12px;
+}
+.cbz-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--cbz-ink);
+  cursor: pointer;
+}
+.cbz-check input { width: 16px; height: 16px; accent-color: var(--cbz-brand); }
+
+.cbz-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--cbz-surface-sunken);
+  overflow: hidden;
+  min-width: 80px;
+}
+.cbz-progress > span { display: block; height: 100%; background: var(--cbz-green); border-radius: inherit; }
+
+.cbz-attention { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cbz-attention li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cbz-border);
+  border-radius: var(--cbz-radius-md);
+  font-size: 0.86rem;
+}
+
+.cbz-section-title { margin: 18px 0 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cbz-muted); font-weight: 600; }
+.cbz-row--inactive td { opacity: 0.55; }
+.cbz-table select { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--cbz-border); background: var(--cbz-surface); color: var(--cbz-ink); }
+
+@media (max-width: 640px) {
+  .cbz-admin-banner { flex-direction: column; align-items: flex-start; }
+}

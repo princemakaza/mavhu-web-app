@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { SessionProvider } from '../presenter/SessionContext';
+import { AdminApp } from '../view/admin/AdminApp';
 import { CbzApp } from '../view/cbz/CbzApp';
 import { DashboardPage, LoginPage, RoleSelectPage, SignUpPage } from './pages';
 
@@ -8,9 +9,12 @@ export function App() {
     <SessionProvider>
       <BrowserRouter>
         <Routes>
-          {/* CBZ Holdings dashboard — the demo landing surface. */}
+          {/* Bank portal: every client bank's users sign in here and see only their own bank. */}
           <Route path="/" element={<CbzApp />} />
           <Route path="/cbz" element={<CbzApp />} />
+
+          {/* MAvHU team console: onboard banks, manage users & roles, view any bank's dashboard. */}
+          <Route path="/admin/*" element={<AdminApp />} />
 
           {/* Legacy Mavhu identity flows kept accessible for other roles. */}
           <Route path="/mavhu" element={<RoleSelectPage />} />

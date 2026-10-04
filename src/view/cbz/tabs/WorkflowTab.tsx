@@ -10,6 +10,17 @@ export function WorkflowTab({ scope, session }: { scope: EntityCode; session: Cb
   const state = useCbz();
   const { advanceEmission } = useCbzData();
   const [filter, setFilter] = useState<EmissionRecord['status'] | 'all'>('all');
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+
+  async function advance(id: string) {
+    setAdvanceError(null);
+    try {
+      await advanceEmission(id, session.fullName);
+    } catch (err) {
+      // e.g. the record's reporting period was locked by MAvHU
+      setAdvanceError(err instanceof Error ? err.message : 'Could not advance this record.');
+    }
+  }
 
   const records = useMemo(
     () =>
@@ -75,6 +86,7 @@ export function WorkflowTab({ scope, session }: { scope: EntityCode; session: Cb
           </label>
         }
       >
+        {advanceError && <p className="cbz-alert cbz-alert--danger">{advanceError}</p>}
         <div className="cbz-table-wrap">
           <table className="cbz-table">
             <thead>
@@ -109,7 +121,7 @@ export function WorkflowTab({ scope, session }: { scope: EntityCode; session: Cb
                       <button
                         type="button"
                         className="cbz-btn cbz-btn--sm cbz-btn--primary"
-                        onClick={() => advanceEmission(r.id, session.fullName)}
+                        onClick={() => advance(r.id)}
                       >
                         Advance →
                       </button>
