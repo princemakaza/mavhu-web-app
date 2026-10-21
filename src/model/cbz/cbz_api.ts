@@ -2,6 +2,14 @@ import type {
   AuditEntry,
   BankEntity,
   BankInfo,
+  ChainVerification,
+  DisclosureRow,
+  DisclosureVersion,
+  EvidenceFile,
+  Me,
+  MrvBorrower,
+  RegisterDef,
+  RegisterItem,
   Counterparty,
   Department,
   EmissionRecord,
@@ -207,4 +215,69 @@ export async function downloadImportTemplate(): Promise<void> {
   link.download = name;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Role, workflow and register actions ─────────────────────────────────────
+export const fetchMe = () => cbzFetch<Me>('/me');
+export const fetchMrv = () => cbzFetch<MrvBorrower[]>('/mrv');
+export const fetchAuditVerification = () => cbzFetch<ChainVerification>('/audit/verify');
+
+export const apiRejectEmission = (id: string, reason: string) =>
+  cbzFetch<EmissionRecord>(`/emissions/${encodeURIComponent(id)}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) });
+
+export const apiTagCounterparty = (id: string, body: { taxonomy: string | null; taxonomyCategory?: string | null; taxonomyStatus?: string | null }) =>
+  cbzFetch<Counterparty>(`/counterparties/${encodeURIComponent(id)}/taxonomy`, { method: 'PATCH', body: JSON.stringify(body) });
+
+export const apiUpdateIncident = (id: string, body: { status?: string; correctiveAction?: string; closureDate?: string | null }) =>
+  cbzFetch<Incident>(`/incidents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+
+export const apiUpdateRisk = (id: string, body: { likelihood?: number; impact?: number; status?: string; owner?: string }) =>
+  cbzFetch<RiskEntry>(`/risks/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+
+export const fetchRegisterDefs = () => cbzFetch<RegisterDef[]>('/registers');
+export const fetchRegister = (register: string) => cbzFetch<RegisterItem[]>(`/registers/${register}`);
+export const apiCreateRegisterItem = (register: string, body: { entityCode?: string | null; data: Record<string, unknown> }) =>
+  cbzFetch<RegisterItem>(`/registers/${register}`, { method: 'POST', body: JSON.stringify(body) });
+export const apiUpdateRegisterItem = (register: string, id: string, body: { entityCode?: string | null; data: Record<string, unknown> }) =>
+  cbzFetch<RegisterItem>(`/registers/${register}/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+export const apiDeleteRegisterItem = (register: string, id: string) =>
+  cbzFetch<{ id: string }>(`/registers/${register}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+
+// ── Evidence ────────────────────────────────────────────────────────────────
+export const fetchEvidence = (filter: { targetType?: string; targetId?: string } = {}) => {
+  const q = new URLSearchParams(Object.entries(filter).filter(([, v]) => v) as Array<[string, string]>).toString();
+  return cbzFetch<EvidenceFile[]>(`/evidence${q ? `?${q}` : ''}`);
+};
+
+export async function apiUploadEvidence(file: File, meta: { targetType: string; targetId?: string; entityCode?: string; description?: string }): Promise<EvidenceFile> {
+  const form = new FormData();
+  form.append('file', file);
+  for (const [k, v] of Object.entries(meta)) if (v) form.append(k, v);
+  const response = await cbzRaw('/evidence', { method: 'POST', body: form });
+  return response.json() as Promise<EvidenceFile>;
+}
+
+async function saveResponse(response: Response, fallback: string) {
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallback;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadEvidence(file: EvidenceFile): Promise<void> {
+  await saveResponse(await cbzRaw(`/evidence/${encodeURIComponent(file.id)}/download`, { method: 'GET' }), file.fileName);
+}
+
+// ── Disclosures ─────────────────────────────────────────────────────────────
+export const fetchDisclosures = () => cbzFetch<DisclosureVersion[]>('/disclosures');
+export const fetchDisclosure = (id: string) => cbzFetch<DisclosureVersion>(`/disclosures/${encodeURIComponent(id)}`);
+export const apiPublishDisclosure = (body: { framework: string; period: string; title?: string; notes?: string; rows: DisclosureRow[] }) =>
+  cbzFetch<DisclosureVersion>('/disclosures', { method: 'POST', body: JSON.stringify(body) });
+
+export async function downloadDisclosure(d: DisclosureVersion, format: 'xlsx' | 'csv' | 'doc' | 'json'): Promise<void> {
+  await saveResponse(await cbzRaw(`/disclosures/${encodeURIComponent(d.id)}/export?format=${format}`, { method: 'GET' }), `${d.framework}_${d.period}_v${d.version}.${format}`);
 }

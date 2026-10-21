@@ -5,12 +5,14 @@ import { DASHBOARD_MODULES, type BankStats, type BankStatus } from '../../../mod
 import { EmptyState, Panel, fmtUsd } from '../../cbz/components/primitives';
 import { BankStatusBadge, ErrorNote, Loading, Modal, relativeTime } from '../shared';
 import { useLoad } from '../useLoad';
+import { useReadOnly } from '../adminContext';
 
 const STATUSES: BankStatus[] = ['onboarding', 'active', 'suspended'];
 const ALL_MODULES = DASHBOARD_MODULES.map((m) => m.key);
 
 export function BanksTab() {
   const navigate = useNavigate();
+  const readOnly = useReadOnly();
   const { data: banks, error, loading, reload } = useLoad(() => adminApi.banks(), []);
   const [showCreate, setShowCreate] = useState(false);
   const [managing, setManaging] = useState<number | null>(null);
@@ -21,9 +23,11 @@ export function BanksTab() {
         title="Client banks"
         subtitle="Onboarding creates the bank, and optionally its first subsidiary and bank administrator, in one step."
         action={
-          <button type="button" className="cbz-btn cbz-btn--primary" onClick={() => setShowCreate(true)}>
-            + Onboard bank
-          </button>
+          readOnly ? undefined : (
+            <button type="button" className="cbz-btn cbz-btn--primary" onClick={() => setShowCreate(true)}>
+              + Onboard bank
+            </button>
+          )
         }
         padded={false}
       >
@@ -74,9 +78,11 @@ export function BanksTab() {
                     <td className="cbz-muted">{relativeTime(bank.lastActivity)}</td>
                     <td>
                       <div className="cbz-toolbar">
-                        <button type="button" className="cbz-btn cbz-btn--sm cbz-btn--ghost" onClick={() => setManaging(bank.id)}>
-                          Manage
-                        </button>
+                        {!readOnly && (
+                          <button type="button" className="cbz-btn cbz-btn--sm cbz-btn--ghost" onClick={() => setManaging(bank.id)}>
+                            Manage
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="cbz-btn cbz-btn--sm cbz-btn--primary"

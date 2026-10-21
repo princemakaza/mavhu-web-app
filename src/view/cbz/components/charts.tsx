@@ -84,6 +84,15 @@ export function BarChart({
   );
 }
 
+// Show about a dozen labels; the last one always shows, and the regular label just before it is
+// dropped when the two would overlap.
+function showLabel(i: number, count: number) {
+  const every = Math.max(1, Math.ceil(count / 12));
+  const last = count - 1;
+  if (i === last) return true;
+  return i % every === 0 && last - i >= Math.ceil(every / 2) + 1;
+}
+
 export function LineChart({
   historical,
   forecast,
@@ -166,9 +175,10 @@ export function LineChart({
           <title>{`${labels[historical.length + i]}: ${v.toLocaleString()} (forecast)`}</title>
         </circle>
       ))}
-      {labels.map((l, i) => (
+      {/* Long series: show about a dozen labels; every point keeps its full label in the tooltip. */}
+      {labels.map((l, i) => (showLabel(i, labels.length) ? (
         <text
-          key={l}
+          key={`${i}-${l}`}
           x={padding.left + i * step}
           y={height - padding.bottom + 18}
           textAnchor="middle"
@@ -176,7 +186,7 @@ export function LineChart({
         >
           {l}
         </text>
-      ))}
+      ) : null))}
     </svg>
   );
 }

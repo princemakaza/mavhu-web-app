@@ -111,6 +111,12 @@ export interface Counterparty {
   totalEmissionsTco2e: number;
   dqScore: 1 | 2 | 3 | 4 | 5;
   mrvEnhanced: boolean;
+  /** Sustainable-finance tag (F22/F33). */
+  taxonomy?: string | null;
+  taxonomyCategory?: string | null;
+  taxonomyStatus?: 'Eligible' | 'Aligned' | 'Not eligible' | 'Under review' | null;
+  /** Set when the borrower's land is monitored by MAvHU MRV. */
+  customerId?: number | null;
   createdAt: string;
 }
 
@@ -145,6 +151,8 @@ export interface EmissionRecord {
   submittedAt: string;
   approvedBy: string | null;
   approvedAt: string | null;
+  /** Why an approver sent the record back. */
+  reviewNote?: string | null;
 }
 
 export interface InsurancePolicy {
@@ -209,7 +217,8 @@ export interface Incident {
 export interface RiskEntry {
   id: string;
   title: string;
-  category: 'Physical' | 'Transition' | 'Liability' | 'Opportunity';
+  // Climate (IFRS S2: physical, transition) plus the wider ESG register (F32: social, governance).
+  category: 'Physical' | 'Transition' | 'Liability' | 'Opportunity' | 'Social' | 'Governance';
   likelihood: 1 | 2 | 3 | 4 | 5;
   impact: 1 | 2 | 3 | 4 | 5;
   owner: string;
@@ -249,9 +258,15 @@ export interface AuditEntry {
     | 'Incident'
     | 'RiskEntry'
     | 'Bank'
-    | 'Auth';
+    | 'Auth'
+    | (string & {});
   targetId: string | null;
   detail: string;
+  seq?: string;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+  prevHash?: string | null;
+  hash?: string | null;
 }
 
 export interface IngestionBatch {
@@ -310,4 +325,125 @@ export interface CbzSession {
   entityCode: EntityCode; // scopes what the session can see/edit
   role: Member['role'];
   loginAt: string;
+}
+
+// ── RFP readiness features ────────────────────────────────────────────────────
+
+export type Capability =
+  | 'submit-data'
+  | 'write-data'
+  | 'approve'
+  | 'manage-members'
+  | 'manage-registers'
+  | 'operational-registers'
+  | 'tag-taxonomy'
+  | 'publish';
+
+/** The signed-in user as the server sees them (role and permissions are enforced there). */
+export interface Me {
+  actorName: string;
+  /** Null for MAvHU staff, who are not bank members. */
+  memberId: string | null;
+  role: string;
+  roleLabel: string;
+  entityCode: string | null;
+  bankId: number;
+  capabilities: Capability[];
+}
+
+export interface RegisterField {
+  key: string;
+  label: string;
+  type: 'string' | 'text' | 'number' | 'int' | 'score' | 'share' | 'bool' | 'date';
+  required?: boolean;
+  options?: string[];
+}
+
+export interface RegisterDef {
+  key: string;
+  label: string;
+  rfp: string;
+  entityScoped: boolean;
+  write: Capability;
+  fields: RegisterField[];
+}
+
+export interface RegisterItem {
+  id: string;
+  bankId: number;
+  register: string;
+  entityCode: string | null;
+  data: Record<string, unknown>;
+  createdBy: string;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EvidenceFile {
+  id: string;
+  entityCode: string | null;
+  targetType: string;
+  targetId: string | null;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  description: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export interface DisclosureRow {
+  code: string;
+  label: string;
+  value: number | string | null;
+  unit: string;
+  reference: string;
+  pillar?: string;
+  status?: string;
+  basis?: string;
+  sources?: number;
+}
+
+export interface DisclosureVersion {
+  id: string;
+  framework: string;
+  period: string;
+  version: number;
+  title: string;
+  hash: string;
+  publishedBy: string;
+  publishedAt: string;
+  snapshot?: { rows: DisclosureRow[]; completeness: number; basis: string; bank: string; notes?: string };
+  intact?: boolean;
+}
+
+export interface MrvBorrower {
+  counterpartyId: string;
+  name: string;
+  subsidiary: string;
+  dqScore: number;
+  customerId: number;
+  hectares: number;
+  estates: number;
+  latestPass: string | null;
+  latestNdvi: number | null;
+  carbonStockTco2: number | null;
+  avgNdvi12m: number | null;
+  avgNdviPrior12m: number | null;
+  lowestNdvi12m: number | null;
+  verificationStatus: string | null;
+  lastVisit: string | null;
+  approvedFarmTco2e: number | null;
+  outstandingUsd: number;
+}
+
+export interface ChainVerification {
+  total: number;
+  verified: number;
+  intact: boolean;
+  headHash: string | null;
+  checkedAt: string;
+  broken: Array<{ seq: string; id: string; reason: string }>;
 }

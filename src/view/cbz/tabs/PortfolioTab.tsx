@@ -14,7 +14,8 @@ interface Props {
 
 export function PortfolioTab({ scope, session }: Props) {
   const state = useCbz();
-  const canWrite = session.role === 'admin' || session.role === 'contributor' || session.role === 'approver';
+  const { can } = useCbzData();
+  const canWrite = can('write-data');
 
   const [assetClassFilter, setAssetClassFilter] = useState<AssetClass | 'all'>('all');
   const [showAdd, setShowAdd] = useState(false);
@@ -199,6 +200,8 @@ export function PortfolioTab({ scope, session }: Props) {
           </table>
         </div>
       </Panel>
+
+      <MrvPanel scope={scope} />
 
       {showAdd && (
         <AddPositionModal
@@ -465,6 +468,115 @@ function AddPositionModal({
           </footer>
         </form>
       </div>
+    </div>
+  );
+}
+
+/**
+ * MAvHU MRV on land-based exposures (A3-A6): which borrowers are satellite-verified, what their
+ * vegetation trend says about drought or degradation, and where verification would lift the
+ * portfolio's PCAF data-quality score the most.
+ */
+function MrvPanel({ scope }: { scope: EntityCode }) {
+  const state = useCbz();
+  const { mrv } = useCbzData();
+  const linked = mrv.filter((m) => scope === 'GROUP' || m.subsidiary === scope);
+
+  // A4 prioritisation: unverified land-based borrowers ranked by outstanding × DQ points to gain.
+  const outstanding = new Map<string, number>();
+  for (const p of state.financedPositions) outstanding.set(p.counterpartyId, (outstanding.get(p.counterpartyId) ?? 0) + p.outstandingAmountUsd);
+  const candidates = state.counterparties
+    .filter((c) => (scope === 'GROUP' || c.subsidiary === scope) && !c.customerId && /agri|real estate|property|residential|timber|farm/i.test(c.sector) && c.dqScore > 2)
+    .map((c) => ({ cp: c, out: outstanding.get(c.id) ?? 0, gain: c.dqScore - 2 }))
+    .map((x) => ({ ...x, score: (x.out * x.gain) / 1e6 }))
+    .filter((x) => x.out > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  return (
+    <div className="cbz-grid cbz-grid--halves">
+      <Panel title="MRV-verified borrowers" subtitle="Satellite NDVI and field visits feed these positions directly (A3, A5, A6)" padded={false}>
+        {linked.length === 0 ? (
+          <EmptyState title="No borrowers linked to MAvHU MRV yet." />
+        ) : (
+          <div className="cbz-table-wrap">
+            <table className="cbz-table cbz-table--compact">
+              <thead>
+                <tr>
+                  <th>Borrower</th>
+                  <th className="cbz-num">ha</th>
+                  <th>12-month NDVI</th>
+                  <th className="cbz-num">Carbon stock</th>
+                  <th>Field check</th>
+                  <th>DQ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linked.map((m) => {
+                  const drop = m.avgNdvi12m !== null && m.avgNdviPrior12m !== null ? m.avgNdvi12m - m.avgNdviPrior12m : null;
+                  return (
+                    <tr key={m.counterpartyId}>
+                      <td>
+                        {m.name}
+                        <div className="cbz-muted">{fmtUsd(m.outstandingUsd)} outstanding · last pass {m.latestPass?.slice(0, 10) ?? '—'}</div>
+                      </td>
+                      <td className="cbz-num">{m.hectares.toLocaleString('en-GB')}</td>
+                      <td>
+                        {m.avgNdvi12m?.toFixed(2) ?? '—'}{' '}
+                        {drop !== null && (
+                          <span className={`cbz-pill ${drop < -0.03 ? 'cbz-pill--sev-high' : 'cbz-pill--sev-low'}`}>
+                            {drop < -0.03 ? `▼ ${Math.abs(drop).toFixed(2)} stress` : `${drop >= 0 ? '▲' : '▼'} ${Math.abs(drop).toFixed(2)}`}
+                          </span>
+                        )}
+                      </td>
+                      <td className="cbz-num">{m.carbonStockTco2 ? `${fmtT(m.carbonStockTco2, 0)} t` : '—'}</td>
+                      <td>{m.verificationStatus ?? '—'}</td>
+                      <td>
+                        <DqPill score={m.dqScore} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+      <Panel title="MRV prioritisation" subtitle="Unverified land-based borrowers ranked by outstanding × DQ points MRV could save (A4)" padded={false}>
+        {candidates.length === 0 ? (
+          <EmptyState title="Every land-based borrower in scope is already MRV-verified or at DQ 2." />
+        ) : (
+          <div className="cbz-table-wrap">
+            <table className="cbz-table cbz-table--compact">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Borrower</th>
+                  <th className="cbz-num">Outstanding</th>
+                  <th>DQ now → with MRV</th>
+                  <th className="cbz-num">Priority</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidates.map((c, i) => (
+                  <tr key={c.cp.id}>
+                    <td>{i + 1}</td>
+                    <td>
+                      {c.cp.name}
+                      <div className="cbz-muted">{c.cp.sector}</div>
+                    </td>
+                    <td className="cbz-num">{fmtUsd(c.out)}</td>
+                    <td>
+                      {c.cp.dqScore} → 2
+                    </td>
+                    <td className="cbz-num">{c.score.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

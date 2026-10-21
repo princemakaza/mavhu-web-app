@@ -5,6 +5,8 @@ import { adminSessionStore } from '../../model/admin/adminSession';
 import type { AdminSession } from '../../model/admin/types';
 import { useCbzTheme } from '../../model/cbz/theme';
 import { AdminConsole } from './AdminConsole';
+import { AdminSessionContext } from './adminContext';
+import { FarmMrvView } from './FarmMrvView';
 import { AdminLogin } from './AdminLogin';
 import { BankDashboardView } from './BankDashboardView';
 
@@ -38,10 +40,13 @@ export function AdminApp() {
   };
 
   return (
-    <Routes>
-      <Route index element={<AdminConsole session={session} onSignOut={signOut} />} />
-      <Route path="banks/:bankId/dashboard" element={<BankDashboardView session={session} />} />
-      <Route path="*" element={<Navigate to="/admin" replace />} />
-    </Routes>
+    <AdminSessionContext.Provider value={session}>
+      <Routes>
+        <Route index element={<AdminConsole session={session} onSignOut={signOut} />} />
+        <Route path="banks/:bankId/dashboard" element={<BankDashboardView session={session} />} />
+        <Route path="farms/:customerId" element={<FarmMrvView session={session} />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    </AdminSessionContext.Provider>
   );
 }

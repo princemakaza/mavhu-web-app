@@ -25,12 +25,21 @@ import {
   fetchPeriods,
   fetchRisks,
   fetchWorkforce,
+  fetchMe,
+  fetchMrv,
+  apiRejectEmission,
+  apiTagCounterparty,
+  apiUpdateIncident,
+  apiUpdateRisk,
   hasCbzCredentials,
   setCbzAdminView,
 } from './cbz_api';
 import type {
   AuditEntry,
   BankInfo,
+  Capability,
+  Me,
+  MrvBorrower,
   CbzStoreState,
   Counterparty,
   EmissionRecord,
@@ -143,6 +152,12 @@ interface CbzDataContextValue {
   /** The bank this dashboard is scoped to; null until the first load finishes. */
   bank: BankInfo | null;
   periods: ReportingPeriod[];
+  /** The signed-in user's role and permissions, as enforced by the server. */
+  me: Me | null;
+  /** Shorthand for me.capabilities.includes(capability). */
+  can: (capability: Capability) => boolean;
+  /** Borrowers whose land is monitored by MAvHU MRV. */
+  mrv: MrvBorrower[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -155,6 +170,10 @@ interface CbzDataContextValue {
   addRisk: (body: Partial<RiskEntry>) => Promise<RiskEntry>;
   addIngestionBatch: (body: Partial<IngestionBatch>) => Promise<IngestionBatch>;
   appendAudit: (body: Partial<AuditEntry>) => Promise<AuditEntry>;
+  rejectEmission: (id: string, reason: string) => Promise<EmissionRecord>;
+  tagCounterparty: (id: string, body: { taxonomy: string | null; taxonomyCategory?: string | null; taxonomyStatus?: string | null }) => Promise<Counterparty>;
+  updateIncident: (id: string, body: { status?: string; correctiveAction?: string; closureDate?: string | null }) => Promise<Incident>;
+  updateRisk: (id: string, body: { likelihood?: number; impact?: number; status?: string; owner?: string }) => Promise<RiskEntry>;
 }
 
 const CbzDataContext = createContext<CbzDataContextValue | null>(null);
@@ -173,6 +192,8 @@ export function CbzDataProvider({ children, adminView }: ProviderProps) {
   const [state, setState] = useState<CbzStoreState>(EMPTY_STATE);
   const [bank, setBank] = useState<BankInfo | null>(null);
   const [periods, setPeriods] = useState<ReportingPeriod[]>([]);
+  const [me, setMe] = useState<Me | null>(null);
+  const [mrv, setMrv] = useState<MrvBorrower[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchingRef = useRef(false);
@@ -191,6 +212,8 @@ export function CbzDataProvider({ children, adminView }: ProviderProps) {
       setState(EMPTY_STATE);
       setBank(null);
       setPeriods([]);
+      setMe(null);
+      setMrv([]);
       setError(null);
       setLoading(false);
       fetchingRef.current = false;
@@ -216,6 +239,8 @@ export function CbzDataProvider({ children, adminView }: ProviderProps) {
         audit,
         bankInfo,
         periodRows,
+        meInfo,
+        mrvRows,
       ] = await Promise.all([
         fetchEntities(),
         fetchDepartments(),
@@ -233,9 +258,13 @@ export function CbzDataProvider({ children, adminView }: ProviderProps) {
         fetchAudit(),
         fetchBank(),
         fetchPeriods(),
+        fetchMe(),
+        fetchMrv(),
       ]);
       setBank(bankInfo);
       setPeriods(periodRows);
+      setMe(meInfo);
+      setMrv(mrvRows);
       setState({
         entities,
         departments,
@@ -316,6 +345,17 @@ export function CbzDataProvider({ children, adminView }: ProviderProps) {
     return result;
   };
 
+  const withRefresh = <A extends unknown[], R>(fn: (...args: A) => Promise<R>) => async (...args: A): Promise<R> => {
+    const result = await fn(...args);
+    await refresh();
+    return result;
+  };
+  const rejectEmission = withRefresh(apiRejectEmission);
+  const tagCounterparty = withRefresh(apiTagCounterparty);
+  const updateIncident = withRefresh(apiUpdateIncident);
+  const updateRisk = withRefresh(apiUpdateRisk);
+  const can = (capability: Capability) => Boolean(me?.capabilities.includes(capability));
+
   const appendAudit = async (body: Partial<AuditEntry>) => {
     const result = await apiAppendAudit(body);
     await refresh();
@@ -328,6 +368,9 @@ export function CbzDataProvider({ children, adminView }: ProviderProps) {
         state,
         bank,
         periods,
+        me,
+        can,
+        mrv,
         loading,
         error,
         refresh,
@@ -340,6 +383,10 @@ export function CbzDataProvider({ children, adminView }: ProviderProps) {
         addRisk,
         addIngestionBatch,
         appendAudit,
+        rejectEmission,
+        tagCounterparty,
+        updateIncident,
+        updateRisk,
       }}
     >
       {children}

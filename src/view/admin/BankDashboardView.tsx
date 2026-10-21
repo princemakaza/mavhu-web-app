@@ -12,7 +12,7 @@ export function BankDashboardView({ session }: { session: AdminSession }) {
 
   const viewer: CbzSession = {
     memberId: `mavhu-admin-${session.userId}`,
-    fullName: `${session.name} (MAvHU)`,
+    fullName: `${session.name} (MAvHU${session.readOnly ? ' auditor' : ''})`,
     email: session.email,
     entityCode: 'GROUP',
     role: 'admin',
@@ -22,7 +22,7 @@ export function BankDashboardView({ session }: { session: AdminSession }) {
 
   return (
     <CbzDataProvider key={bankId} adminView={{ token: session.token, bankId }}>
-      <CbzDashboard session={viewer} onSignOut={exit} adminView={{ onExit: exit }} />
+      <CbzDashboard session={viewer} onSignOut={exit} adminView={{ onExit: exit, readOnly: session.readOnly }} />
     </CbzDataProvider>
   );
 }

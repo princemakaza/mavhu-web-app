@@ -4,8 +4,10 @@ import { MEMBER_ROLES, type AdminMember, type MemberRole } from '../../../model/
 import { EmptyState, Panel, StatCard } from '../../cbz/components/primitives';
 import { ErrorNote, Loading, Modal } from '../shared';
 import { useLoad } from '../useLoad';
+import { useReadOnly } from '../adminContext';
 
 export function UsersTab() {
+  const readOnly = useReadOnly();
   const banks = useLoad(() => adminApi.banks(), []);
   const [bankId, setBankId] = useState<number | 0>(0);
   const members = useLoad(() => adminApi.members(bankId || undefined), [bankId]);
@@ -99,9 +101,11 @@ export function UsersTab() {
               <span>Search</span>
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, email, subsidiary" />
             </label>
-            <button type="button" className="cbz-btn cbz-btn--primary" disabled={!banks.data} onClick={() => setShowAdd(true)}>
-              + Add user
-            </button>
+            {!readOnly && (
+              <button type="button" className="cbz-btn cbz-btn--primary" disabled={!banks.data} onClick={() => setShowAdd(true)}>
+                + Add user
+              </button>
+            )}
           </div>
         }
         padded={false}
@@ -139,7 +143,7 @@ export function UsersTab() {
                       <select
                         aria-label={`Role for ${m.fullName}`}
                         value={m.role}
-                        disabled={busyId === m.id}
+                        disabled={readOnly || busyId === m.id}
                         onChange={(e) => update(m, { role: e.target.value as MemberRole })}
                       >
                         {MEMBER_ROLES.map((r) => (
@@ -151,7 +155,7 @@ export function UsersTab() {
                     </td>
                     <td>{m.isActive ? 'Active' : 'Deactivated'}</td>
                     <td>
-                      <div className="cbz-toolbar">
+                      <div className="cbz-toolbar" hidden={readOnly}>
                         <button
                           type="button"
                           className="cbz-btn cbz-btn--sm cbz-btn--ghost"

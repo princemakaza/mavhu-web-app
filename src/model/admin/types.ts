@@ -4,6 +4,8 @@ export interface AdminSession {
   token: string;
   userId: number;
   name: string;
+  /** MAvHU auditors see everything but change nothing. */
+  readOnly?: boolean;
   email: string;
 }
 
@@ -143,12 +145,25 @@ export interface AuditRow {
 /** Dashboard modules a bank can be licensed for — same keys as the bank dashboard's tabs. */
 export const DASHBOARD_MODULES: Array<{ key: string; label: string }> = [
   { key: 'snapshot', label: 'Group snapshot' },
+  { key: 'entity', label: 'Entity view' },
   { key: 'portfolio', label: 'Financed emissions (PCAF A)' },
   { key: 'insurance', label: 'Insurance emissions (PCAF C)' },
-  { key: 'risk', label: 'Risk heatmap & register' },
-  { key: 'predictive', label: 'Predictive' },
+  { key: 'sustainable-finance', label: 'Sustainable finance' },
+  { key: 'risk', label: 'Risks & incidents' },
+  { key: 'scenarios', label: 'Scenarios & Climate VaR' },
+  { key: 'appetite', label: 'Risk appetite' },
+  { key: 'targets', label: 'Targets & KPIs' },
+  { key: 'decarbonisation', label: 'Decarbonisation' },
+  { key: 'environment', label: 'Environment' },
+  { key: 'social', label: 'Social impact' },
+  { key: 'materiality', label: 'Materiality' },
+  { key: 'stakeholders', label: 'Stakeholders' },
+  { key: 'suppliers', label: 'Suppliers' },
+  { key: 'data-ownership', label: 'Data ownership' },
+  { key: 'disclosures', label: 'Disclosures' },
+  { key: 'evidence', label: 'Evidence' },
   { key: 'workflow', label: 'Workflow & audit' },
-  { key: 'entity', label: 'Entity view' },
+  { key: 'predictive', label: 'Insights' },
   { key: 'data-entry', label: 'Data entry' },
   { key: 'members', label: 'Members & customers' },
 ];
@@ -161,3 +176,16 @@ export const MEMBER_ROLES: Array<{ key: MemberRole; label: string; hint: string 
   { key: 'auditor', label: 'Auditor', hint: 'Read-only assurer (RFP F19/F38)' },
   { key: 'customer', label: 'Customer', hint: 'Borrower self-service data entry' },
 ];
+
+export interface FarmRow {
+  id: number;
+  name: string;
+  country: string;
+  email: string;
+  estates: number;
+  hectares: number;
+  users: number;
+  latestPass: string | null;
+  pendingApprovals: number;
+  financedBy: string | null;
+}

@@ -91,7 +91,7 @@ export function CbzLogin({ onLogin }: Props) {
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
           <p className="cbz-muted cbz-login__admin-link">
-            MAvHU team? <Link to="/admin">Sign in to the admin console →</Link>
+            MAvHU team? <Link to="/admin">MAvHU console →</Link> · Farm? <Link to="/agri">Agri MRV portal →</Link> · <Link to="/">All portals</Link>
           </p>
         </form>
       </div>

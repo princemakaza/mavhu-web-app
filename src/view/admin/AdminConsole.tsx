@@ -8,11 +8,13 @@ import { PeriodsTab } from './tabs/PeriodsTab';
 import { RfpCoverageTab } from './tabs/RfpCoverageTab';
 import { TeamTab } from './tabs/TeamTab';
 import { UsersTab } from './tabs/UsersTab';
+import { FarmsTab } from './tabs/FarmsTab';
 
 const TABS = [
   { key: 'overview', label: 'Platform overview', description: 'Every client bank at a glance' },
   { key: 'banks', label: 'Banks', description: 'Onboard banks, subsidiaries & modules' },
   { key: 'users', label: 'Bank users & roles', description: 'Create users, assign roles' },
+  { key: 'farms', label: 'Agri farms (MRV)', description: 'Borrower farms on satellite MRV' },
   { key: 'team', label: 'MAvHU team', description: 'Platform admins & auditors' },
   { key: 'periods', label: 'Reporting periods', description: 'Lock periods for assurance' },
   { key: 'audit', label: 'Audit trail', description: 'Cross-bank change log & export' },
@@ -51,7 +53,7 @@ export function AdminConsole({ session, onSignOut }: { session: AdminSession; on
             <div className="cbz-avatar">{session.name.split(' ').map((s) => s[0]).slice(0, 2).join('')}</div>
             <div>
               <div className="cbz-nav__user-name">{session.name}</div>
-              <div className="cbz-nav__user-role">MAvHU admin · {session.email}</div>
+              <div className="cbz-nav__user-role">{session.readOnly ? 'MAvHU auditor (read-only)' : 'MAvHU admin'} · {session.email}</div>
             </div>
           </div>
           <button type="button" className="cbz-btn cbz-btn--ghost cbz-btn--block" onClick={onSignOut}>
@@ -61,6 +63,13 @@ export function AdminConsole({ session, onSignOut }: { session: AdminSession; on
       </aside>
 
       <main className="cbz-main">
+        {session.readOnly && (
+          <div className="cbz-alert cbz-alert--info cbz-admin-banner">
+            <span>
+              <strong>Read-only assurance access.</strong> You can open every bank's dashboard, audit trail and evidence; changes are disabled.
+            </span>
+          </div>
+        )}
         <header className="cbz-topbar">
           <div>
             <div className="cbz-topbar__eyebrow">{tab.description}</div>
@@ -76,6 +85,7 @@ export function AdminConsole({ session, onSignOut }: { session: AdminSession; on
           {active === 'overview' && <OverviewTab onOpenTab={go} />}
           {active === 'banks' && <BanksTab />}
           {active === 'users' && <UsersTab />}
+          {active === 'farms' && <FarmsTab />}
           {active === 'team' && <TeamTab session={session} />}
           {active === 'periods' && <PeriodsTab />}
           {active === 'audit' && <AuditTab />}

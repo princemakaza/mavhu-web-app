@@ -69,7 +69,7 @@ export function AdminLogin({ onLogin }: { onLogin: (session: AdminSession) => vo
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
           <p className="cbz-muted cbz-login__admin-link">
-            Bank user? <Link to="/">Go to the bank portal →</Link>
+            Bank user? <Link to="/bank">Go to the bank portal →</Link> · <Link to="/">All portals</Link>
           </p>
         </form>
       </div>

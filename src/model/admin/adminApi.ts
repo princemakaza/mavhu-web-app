@@ -10,6 +10,7 @@ import type {
   PeriodRow,
   TeamMember,
   TeamRole,
+  FarmRow,
 } from './types';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3004/api/v1';
@@ -49,16 +50,20 @@ async function request<T>(path: string, init: { method?: string; body?: unknown;
 const json = (method: string, body: unknown) => ({ method, body });
 
 export const adminApi = {
-  /** Platform login; only accounts holding MAVHU_ADMIN may enter the console. */
+  /** Platform login: MAVHU_ADMIN gets the full console; a MAvHU auditor gets it read-only. */
   async login(email: string, password: string): Promise<AdminSession> {
-    const auth = await request<{ accessToken: string; user: { id: number; name: string; email: string; roles: string[] } }>(
+    const auth = await request<{ accessToken: string; user: { id: number; name: string; email: string; roles: string[]; orgType: string | null } }>(
       '/auth/login',
       json('POST', { email, password }),
     );
-    if (!auth.user.roles.includes('MAVHU_ADMIN')) {
-      throw new Error('This account is not a MAvHU administrator.');
+    const isAdmin = auth.user.roles.includes('MAVHU_ADMIN');
+    const isAuditor = auth.user.roles.includes('AUDITOR') && auth.user.orgType === 'PLATFORM';
+    if (!isAdmin && !isAuditor) {
+      if (auth.user.orgType === 'AGROBUSINESS') throw new Error('This is a farm account: sign in on the Agri MRV portal.');
+      if (auth.user.orgType === 'BANK') throw new Error('This is a bank account: sign in on the bank portal.');
+      throw new Error('This account is not MAvHU staff.');
     }
-    return { token: auth.accessToken, userId: auth.user.id, name: auth.user.name, email: auth.user.email };
+    return { token: auth.accessToken, userId: auth.user.id, name: auth.user.name, email: auth.user.email, readOnly: !isAdmin };
   },
 
   overview: () => request<Overview>('/admin/overview'),
@@ -84,6 +89,8 @@ export const adminApi = {
 
   periods: (bankId?: number) => request<PeriodRow[]>(`/admin/periods${bankId ? `?bankId=${bankId}` : ''}`),
   setPeriod: (body: { bankId: number; period: string; status: 'open' | 'locked' }) => request<PeriodRow>('/admin/periods', json('POST', body)),
+
+  farms: () => request<FarmRow[]>('/admin/farms'),
 
   audit: (bankId?: number, limit = 500) => request<AuditRow[]>(`/admin/audit?limit=${limit}${bankId ? `&bankId=${bankId}` : ''}`),
 };

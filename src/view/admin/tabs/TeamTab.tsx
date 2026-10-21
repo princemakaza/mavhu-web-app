@@ -4,6 +4,7 @@ import type { AdminSession, TeamMember, TeamRole } from '../../../model/admin/ty
 import { Panel, fmtDateTime } from '../../cbz/components/primitives';
 import { ErrorNote, Loading, Modal } from '../shared';
 import { useLoad } from '../useLoad';
+import { useReadOnly } from '../adminContext';
 
 const TEAM_ROLES: Array<{ key: TeamRole; label: string; hint: string }> = [
   { key: 'MAVHU_ADMIN', label: 'Admin', hint: 'Full admin console: banks, users, periods, audit' },
@@ -11,6 +12,7 @@ const TEAM_ROLES: Array<{ key: TeamRole; label: string; hint: string }> = [
 ];
 
 export function TeamTab({ session }: { session: AdminSession }) {
+  const readOnly = useReadOnly();
   const { data, error, loading, reload } = useLoad(() => adminApi.team(), []);
   const [showAdd, setShowAdd] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -42,9 +44,11 @@ export function TeamTab({ session }: { session: AdminSession }) {
         title="MAvHU team"
         subtitle="Staff who sign in to this console. You cannot remove your own admin access."
         action={
-          <button type="button" className="cbz-btn cbz-btn--primary" onClick={() => setShowAdd(true)}>
-            + Add team member
-          </button>
+          readOnly ? undefined : (
+            <button type="button" className="cbz-btn cbz-btn--primary" onClick={() => setShowAdd(true)}>
+              + Add team member
+            </button>
+          )
         }
         padded={false}
       >
@@ -86,7 +90,7 @@ export function TeamTab({ session }: { session: AdminSession }) {
                             type="checkbox"
                             aria-label={`${r.label} role for ${m.name}`}
                             checked={m.roles.includes(r.key)}
-                            disabled={m.isDeleted || (isSelf && r.key === 'MAVHU_ADMIN')}
+                            disabled={readOnly || m.isDeleted || (isSelf && r.key === 'MAVHU_ADMIN')}
                             onChange={(e) => toggleRole(m, r.key, e.target.checked)}
                           />
                         </td>
@@ -94,7 +98,7 @@ export function TeamTab({ session }: { session: AdminSession }) {
                       <td className="cbz-muted">{fmtDateTime(m.createdAt)}</td>
                       <td>{m.isDeleted ? 'Deactivated' : 'Active'}</td>
                       <td>
-                        {!isSelf && (
+                        {!isSelf && !readOnly && (
                           <button type="button" className="cbz-btn cbz-btn--sm cbz-btn--ghost" onClick={() => update(m, { isActive: m.isDeleted })}>
                             {m.isDeleted ? 'Reactivate' : 'Deactivate'}
                           </button>

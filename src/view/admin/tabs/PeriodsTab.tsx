@@ -4,6 +4,7 @@ import type { PeriodRow } from '../../../model/admin/types';
 import { Panel, fmtDateTime } from '../../cbz/components/primitives';
 import { ErrorNote, Loading } from '../shared';
 import { useLoad } from '../useLoad';
+import { useReadOnly } from '../adminContext';
 
 /** The last six quarters, newest first, e.g. 2026-Q4 … 2025-Q3. */
 function recentQuarters(count = 6): string[] {
@@ -23,6 +24,7 @@ function recentQuarters(count = 6): string[] {
 }
 
 export function PeriodsTab() {
+  const readOnly = useReadOnly();
   const banks = useLoad(() => adminApi.banks(), []);
   const periods = useLoad(() => adminApi.periods(), []);
   const [custom, setCustom] = useState('');
@@ -96,7 +98,7 @@ export function PeriodsTab() {
                         <button
                           type="button"
                           className={`cbz-btn cbz-btn--sm ${locked ? 'cbz-btn--primary' : 'cbz-btn--ghost'}`}
-                          disabled={busy === `${bank.id}:${q}`}
+                          disabled={readOnly || busy === `${bank.id}:${q}`}
                           onClick={() => setStatus(bank.id, bank.name, q, locked ? 'open' : 'locked')}
                         >
                           {locked ? 'Locked · reopen' : 'Open · lock'}

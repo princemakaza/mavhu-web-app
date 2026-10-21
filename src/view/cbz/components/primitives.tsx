@@ -1,3 +1,4 @@
+import type React from 'react';
 // Small presentational primitives used across every tab.
 // Kept in one file so we can enforce a consistent visual language everywhere.
 
@@ -118,4 +119,27 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
       {hint && <div className="cbz-empty__hint">{hint}</div>}
     </div>
   );
+}
+
+/** A labelled progress bar (0-1); tone colours it. */
+export function ProgressBar({ value, tone = 'brand', label }: { value: number; tone?: 'brand' | 'green' | 'amber' | 'red'; label?: string }) {
+  const pct = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+  return (
+    <div className="cbz-progress-row">
+      <div className={`cbz-progress cbz-progress--${tone}`} role="progressbar" aria-valuenow={Math.round(pct * 100)} aria-valuemin={0} aria-valuemax={100}>
+        <span style={{ inlineSize: `${pct * 100}%` }} />
+      </div>
+      {label && <span className="cbz-progress-row__label">{label}</span>}
+    </div>
+  );
+}
+
+/** Red / amber / green status chip. */
+export function RagChip({ status, label }: { status: 'green' | 'amber' | 'red' | 'grey'; label: string }) {
+  return <span className={`cbz-rag cbz-rag--${status}`}>{label}</span>;
+}
+
+/** A labelled note under a heading, for method and assumption statements. */
+export function MethodNote({ children }: { children: React.ReactNode }) {
+  return <p className="cbz-method-note">{children}</p>;
 }
