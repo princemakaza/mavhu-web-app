@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mavhu-web-app
+  labels:
+    app: mavhu-web-app
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.mavhu.africa
+      secretName: mavhu-web-app-tls
+  rules:
+    - host: app.mavhu.africa
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mavhu-web-app
+                port:
+                  name: http
